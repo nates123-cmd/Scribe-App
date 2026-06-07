@@ -1,17 +1,39 @@
-// Inbox / triage — untriaged captures with AI-suggested project + tags.
-// Ported 1:1 from the prototype's scribe-screens-1.jsx -> InboxScreen.
+// Inbox / triage — Accept creates a real note (in the suggested project, or
+// homed at the area for multi-project) and clears the capture. Other actions
+// dismiss locally for the session.
 import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
+import { useData } from '../DataContext'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Tag, Btn } from '../kit'
-import { useData } from '../DataContext'
+import { createNote, deleteInbox } from '../lib/db'
+
+const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export function InboxScreen() {
   const { go } = useScribe()
-  const { inbox, projectName } = useData()
+  const { inbox, projectName, areaOfProject, reload } = useData()
   const [hidden, setHidden] = useState([])
+  const [busy, setBusy] = useState(null)
+  const [err, setErr] = useState(null)
   const items = inbox.filter((x) => !hidden.includes(x.id))
-  const remove = (id) => setHidden((h) => [...h, id])
+  const dismiss = (id) => setHidden((h) => [...h, id])
+
+  const accept = async (c) => {
+    setBusy(c.id); setErr(null)
+    const m = c.suggestMulti
+    const projectId = m ? null : (c.suggest?.project || null)
+    const areaId = m ? m.home : (projectId ? (areaOfProject(projectId) || {}).id : null) || null
+    const id = (crypto?.randomUUID?.() || 'note-' + Date.now())
+    const note = {
+      id, kind: m ? 'meeting' : 'note', title: c.title,
+      project: projectId, area: areaId, projects: m ? m.routes.map((r) => r.project) : [],
+      people: [], tags: c.tags || [], date: today(), updated: 'now', indexed: false, status: 1,
+      summary: c.snippet || '', terms: [], actions: [], body: [{ p: c.snippet || '' }], related: [],
+    }
+    try { await createNote(note); await deleteInbox(c.id); await reload() }
+    catch (e) { setErr(e); setBusy(null) }
+  }
 
   return <div style={{ padding: '28px 40px 60px', maxWidth: 820, margin: '0 auto' }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
@@ -21,6 +43,8 @@ export function InboxScreen() {
       </div>
       {items.length > 0 && <Btn kind="outline" icon="sparkles" onClick={() => setHidden(inbox.map((x) => x.id))}>Triage all</Btn>}
     </div>
+
+    {err && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, marginBottom: 14 }}>Couldn’t file it — {String(err?.message || err)}.</div>}
 
     {items.length === 0 && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
       padding: '70px 0', color: t.t3, fontFamily: FONT }}>
@@ -32,6 +56,7 @@ export function InboxScreen() {
     {items.map((c) => {
       const proj = c.suggest && projectName(c.suggest.project)
       const m = c.suggestMulti
+      const loading = busy === c.id
       return <div key={c.id} style={{ background: t.card, border: '1px solid ' + t.line, borderRadius: 12,
         padding: '16px 18px', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
@@ -74,14 +99,14 @@ export function InboxScreen() {
 
         <div style={{ display: 'flex', gap: 9 }}>
           {m
-            ? <><Btn kind="primary" size="sm" icon="git-fork" onClick={() => remove(c.id)}>Accept split</Btn>
-                <Btn kind="outline" size="sm" onClick={() => remove(c.id)}>Adjust routing</Btn>
-                <Btn kind="ghost" size="sm" onClick={() => remove(c.id)}>Leave in inbox</Btn></>
+            ? <><Btn kind="primary" size="sm" icon={loading ? 'loader-2' : 'git-fork'} onClick={() => accept(c)}>Accept split</Btn>
+                <Btn kind="outline" size="sm" onClick={() => accept(c)}>Adjust routing</Btn>
+                <Btn kind="ghost" size="sm" onClick={() => dismiss(c.id)}>Leave in inbox</Btn></>
             : c.suggest
-            ? <><Btn kind="primary" size="sm" onClick={() => remove(c.id)}>Accept → {proj}</Btn>
-                <Btn kind="outline" size="sm" onClick={() => remove(c.id)}>Leave in inbox</Btn></>
-            : <><Btn kind="outline" size="sm" icon="folder">Pick project</Btn>
-                <Btn kind="ghost" size="sm" onClick={() => remove(c.id)}>Keep tags only</Btn></>}
+            ? <><Btn kind="primary" size="sm" icon={loading ? 'loader-2' : undefined} onClick={() => accept(c)}>Accept → {proj}</Btn>
+                <Btn kind="outline" size="sm" onClick={() => dismiss(c.id)}>Leave in inbox</Btn></>
+            : <><Btn kind="outline" size="sm" icon="folder" onClick={() => accept(c)}>File as note</Btn>
+                <Btn kind="ghost" size="sm" onClick={() => dismiss(c.id)}>Keep in inbox</Btn></>}
         </div>
       </div>
     })}

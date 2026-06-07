@@ -102,3 +102,9 @@ export async function createNote(note) {
   const { error } = await supabase.from('scribe_notes').insert(noteRow(note))
   if (error) throw error
 }
+
+// Remove a triaged inbox capture.
+export async function deleteInbox(id) {
+  const { error } = await supabase.from('scribe_inbox').delete().eq('id', id)
+  if (error) throw error
+}
