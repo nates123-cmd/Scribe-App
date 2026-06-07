@@ -96,3 +96,9 @@ async function _seed() {
   if (err) throw err
   return true
 }
+
+// Insert a single note under the logged-in user (RLS sets user_id default).
+export async function createNote(note) {
+  const { error } = await supabase.from('scribe_notes').insert(noteRow(note))
+  if (error) throw error
+}

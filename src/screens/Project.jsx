@@ -1,12 +1,11 @@
-// Project / Area dashboard (auto-composed). Ported 1:1 from the prototype's
-// scribe-screens-2b.jsx -> ProjectScreen. Briefing is a setTimeout fake (wire to
-// claudeComplete later) and MUST NOT auto-run.
+// Project / Area dashboard (auto-composed). Briefing is a real Claude call and
+// does NOT auto-run.
 import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
+import { useData } from '../DataContext'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Btn, StatusPill, KIND } from '../kit'
-import { BRIEFINGS } from '../data'
-import { useData } from '../DataContext'
+import { briefingFor } from '../lib/ai'
 
 export function ProjectScreen() {
   const { route, go } = useScribe()
@@ -24,14 +23,20 @@ export function ProjectScreen() {
   const refs = owned.filter((n) => n.kind === 'note' || n.kind === 'knowledge' || n.kind === 'brainstorm')
   const artifacts = owned.filter((n) => n.kind === 'artifact')
 
-  const [briefing, setBriefing] = useState(pid === 'csp' ? 'ready' : 'idle') // idle | running | ready
+  const [briefing, setBriefing] = useState('idle') // idle | running | ready
+  const [briefingText, setBriefingText] = useState('')
   const [askQ, setAskQ] = useState('')
-  const runBrief = () => { setBriefing('running'); setTimeout(() => setBriefing('ready'), 1100) }
+  const runBrief = async () => {
+    setBriefing('running')
+    try {
+      const text = await briefingFor(pname, [...owned, ...linked])
+      setBriefingText(text); setBriefing('ready')
+    } catch (e) {
+      setBriefingText('Couldn’t compose a briefing — ' + String(e?.message || e)); setBriefing('ready')
+    }
+  }
 
-  // roll up open action items BY ASSIGNMENT (includes items routed here from
-  // meetings that are homed in the area, e.g. a cross-project weekly).
   const actions = actionsForProject(pid)
-
   const sectionLabel = (txt) => <Label style={{ marginBottom: 9, marginTop: 4 }}>{txt}</Label>
 
   return <div>
@@ -63,9 +68,7 @@ export function ProjectScreen() {
       {/* briefing */}
       {briefing === 'ready' ? <div style={{ background: t.accentBg, border: '1px solid ' + t.accentLine, borderRadius: 12, padding: '15px 17px', marginBottom: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}><Icon n="sparkles" s={12} c={t.t1} /><Label>Briefing</Label></div>
-        <div style={{ fontFamily: FONT, fontSize: 14.5, color: t.t1, lineHeight: 1.65 }}>
-          {BRIEFINGS[pid] || 'Generate a briefing to see the current picture for this project.'}
-        </div>
+        <div style={{ fontFamily: FONT, fontSize: 14.5, color: t.t1, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{briefingText}</div>
       </div> : <div style={{ border: '1px dashed ' + t.line2, borderRadius: 12, padding: '18px 17px', marginBottom: 26,
         display: 'flex', alignItems: 'center', gap: 10, color: t.t3, fontFamily: FONT, fontSize: 13 }}>
         <Icon n="sparkles" s={15} c={t.t3} />{briefing === 'running' ? 'Composing briefing from this project’s notes…' : 'No briefing yet — it doesn’t auto-run. Generate one when you need the current picture.'}

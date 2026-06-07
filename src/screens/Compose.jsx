@@ -1,24 +1,35 @@
-// Compose / deliverable — clean content to paste into Word/PPT/Excel, optionally
-// saved as a linked artifact. Ported 1:1 from the prototype's scribe-screens-3.jsx
-// -> ComposeScreen. Compose is a setTimeout fake; wire to claudeComplete later.
+// Compose / deliverable — real Claude composition from a note or a project's notes.
 import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
+import { useData } from '../DataContext'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Btn } from '../kit'
 import { COMPOSE_TYPES } from '../data'
-import { useData } from '../DataContext'
+import { composeDeliverable } from '../lib/ai'
 
 export function ComposeScreen() {
   const { route, go } = useScribe()
-  const { noteById, projectName } = useData()
+  const { noteById, projectName, ownedNotes } = useData()
   const srcNote = route.noteId && noteById(route.noteId)
   const srcProj = route.projectId && projectName(route.projectId)
-  const srcLabel = srcNote ? srcNote.title : srcProj || 'Citrix CSP'
+  const srcLabel = srcNote ? srcNote.title : srcProj || 'this project'
   const [type, setType] = useState('onepager')
   const [instr, setInstr] = useState('')
-  const [state, setState] = useState('idle') // idle | running | done
+  const [state, setState] = useState('idle') // idle | running | done | error
+  const [output, setOutput] = useState('')
   const [copied, setCopied] = useState(false)
-  const run = () => { setState('running'); setTimeout(() => setState('done'), 1200) }
+  const [err, setErr] = useState(null)
+
+  const typeName = (COMPOSE_TYPES.find((c) => c.id === type) || {}).name || 'Deliverable'
+
+  const run = async () => {
+    setState('running'); setErr(null)
+    const contextNotes = srcNote ? [srcNote] : (route.projectId ? ownedNotes(route.projectId) : [])
+    try {
+      const text = await composeDeliverable(type, instr, srcLabel, contextNotes)
+      setOutput(text); setState('done')
+    } catch (e) { setErr(e); setState('error') }
+  }
 
   return <div>
     <div style={{ maxWidth: 740, margin: '0 auto', padding: '30px 40px 70px' }}>
@@ -50,27 +61,19 @@ export function ComposeScreen() {
       <Btn kind="primary" icon={state === 'running' ? 'loader-2' : 'sparkles'} onClick={run}>
         {state === 'running' ? 'Composing…' : state === 'done' ? 'Recompose' : 'Compose'}</Btn>
 
+      {state === 'error' && <div style={{ marginTop: 16, fontFamily: FONT, fontSize: 13, color: t.t2 }}>
+        Couldn’t compose — {String(err?.message || err)}.</div>}
+
       {state === 'done' && <div style={{ marginTop: 24, border: '1px solid ' + t.line, borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', background: t.panel, borderBottom: '1px solid ' + t.line }}>
-          <span style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: t.t1 }}>One-pager · CSP commercial status</span>
+          <span style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: t.t1 }}>{typeName} · {srcLabel}</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Btn kind="ghost" size="sm" icon={copied ? 'check' : 'copy'} onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? 'Copied' : 'Copy'}</Btn>
+            <Btn kind="ghost" size="sm" icon={copied ? 'check' : 'copy'}
+              onClick={() => { navigator.clipboard?.writeText(output); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? 'Copied' : 'Copy'}</Btn>
             <Btn kind="outline" size="sm" icon="link">Save as artifact</Btn>
           </div>
         </div>
-        <div style={{ padding: '20px 22px', fontFamily: FONT, color: t.t1 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', letterSpacing: '-0.01em' }}>Citrix CSP — Commercial Status</h2>
-          <div style={{ fontSize: 12, color: t.t3, marginBottom: 16 }}>Prepared from 14 notes · Jun 7, 2026</div>
-          <p style={{ fontSize: 14, lineHeight: 1.7, margin: '0 0 14px' }}><strong>Bottom line.</strong> Novation is the critical path. Legal sign-off on the novation terms is blocking finalization of the pricing tiers; everything else is sequenced behind it.</p>
-          <div style={{ fontSize: 13, fontWeight: 700, margin: '0 0 6px' }}>Open items</div>
-          <ul style={{ fontSize: 14, lineHeight: 1.7, margin: '0 0 14px', paddingLeft: 20 }}>
-            <li>Novation sign-off — owner: Jon (pushing legal); est. 2–3 weeks once drafted</li>
-            <li>Telemetry scope with Arrowsphere — owner: you, due Thursday</li>
-            <li>EMEA segmentation — open</li>
-          </ul>
-          <div style={{ fontSize: 13, fontWeight: 700, margin: '0 0 6px' }}>Next checkpoint</div>
-          <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>Thursday’s Arrowsphere call resolves telemetry scope and unblocks the EMEA question.</p>
-        </div>
+        <div style={{ padding: '20px 22px', fontFamily: FONT, fontSize: 14, lineHeight: 1.7, color: t.t1, whiteSpace: 'pre-wrap' }}>{output}</div>
       </div>}
     </div>
   </div>
