@@ -1,4 +1,5 @@
-// Compose / deliverable — real Claude composition from a note or a project's notes.
+// Compose / deliverable — real Claude composition; Save as artifact persists a
+// linked artifact note (appears in the project's Deliverables).
 import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { useData } from '../DataContext'
@@ -6,10 +7,15 @@ import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Btn } from '../kit'
 import { COMPOSE_TYPES } from '../data'
 import { composeDeliverable } from '../lib/ai'
+import { createNote } from '../lib/db'
+import { textToBlocks } from '../lib/blocks'
+
+const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+const newId = () => (crypto?.randomUUID?.() || 'note-' + Date.now())
 
 export function ComposeScreen() {
   const { route, go } = useScribe()
-  const { noteById, projectName, ownedNotes } = useData()
+  const { noteById, projectName, ownedNotes, areaOfProject, reload } = useData()
   const srcNote = route.noteId && noteById(route.noteId)
   const srcProj = route.projectId && projectName(route.projectId)
   const srcLabel = srcNote ? srcNote.title : srcProj || 'this project'
@@ -18,17 +24,32 @@ export function ComposeScreen() {
   const [state, setState] = useState('idle') // idle | running | done | error
   const [output, setOutput] = useState('')
   const [copied, setCopied] = useState(false)
+  const [artState, setArtState] = useState('idle') // idle | saving | saved
   const [err, setErr] = useState(null)
 
   const typeName = (COMPOSE_TYPES.find((c) => c.id === type) || {}).name || 'Deliverable'
 
   const run = async () => {
-    setState('running'); setErr(null)
+    setState('running'); setErr(null); setArtState('idle')
     const contextNotes = srcNote ? [srcNote] : (route.projectId ? ownedNotes(route.projectId) : [])
     try {
       const text = await composeDeliverable(type, instr, srcLabel, contextNotes)
       setOutput(text); setState('done')
     } catch (e) { setErr(e); setState('error') }
+  }
+
+  const saveArtifact = async () => {
+    setArtState('saving'); setErr(null)
+    const pid = (srcNote && srcNote.project) || route.projectId || null
+    const aid = pid ? ((areaOfProject(pid) || {}).id || null) : (srcNote && srcNote.area) || null
+    const note = {
+      id: newId(), kind: 'artifact', title: typeName + ' — ' + srcLabel, project: pid, area: aid,
+      projects: [], people: [], tags: ['deliverable'], date: today(), updated: 'now', indexed: false, status: 2,
+      summary: output.slice(0, 160), terms: [], actions: [], body: textToBlocks(output),
+      related: srcNote ? [{ kind: srcNote.kind, title: srcNote.title, reason: 'composed from' }] : [],
+    }
+    try { await createNote(note); await reload(); setArtState('saved') }
+    catch (e) { setErr(e); setArtState('idle') }
   }
 
   return <div>
@@ -45,7 +66,7 @@ export function ComposeScreen() {
       <Label style={{ marginBottom: 9 }}>Deliverable type</Label>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 22 }}>
         {COMPOSE_TYPES.map((c) => { const on = type === c.id
-          return <div key={c.id} onClick={() => { setType(c.id); setState('idle') }}
+          return <div key={c.id} onClick={() => { setType(c.id); setState('idle'); setArtState('idle') }}
             style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px', borderRadius: 11, cursor: 'pointer',
               border: '1px solid ' + (on ? t.accent : t.line2), background: on ? t.accentBg : t.card }}>
             <Icon n={c.icon} s={18} c={t.t1} style={{ marginTop: 1 }} />
@@ -70,10 +91,12 @@ export function ComposeScreen() {
           <div style={{ display: 'flex', gap: 8 }}>
             <Btn kind="ghost" size="sm" icon={copied ? 'check' : 'copy'}
               onClick={() => { navigator.clipboard?.writeText(output); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? 'Copied' : 'Copy'}</Btn>
-            <Btn kind="outline" size="sm" icon="link">Save as artifact</Btn>
+            <Btn kind="outline" size="sm" icon={artState === 'saving' ? 'loader-2' : artState === 'saved' ? 'check' : 'link'}
+              onClick={() => artState === 'idle' && saveArtifact()}>{artState === 'saved' ? 'Saved' : artState === 'saving' ? 'Saving…' : 'Save as artifact'}</Btn>
           </div>
         </div>
         <div style={{ padding: '20px 22px', fontFamily: FONT, fontSize: 14, lineHeight: 1.7, color: t.t1, whiteSpace: 'pre-wrap' }}>{output}</div>
+        {err && <div style={{ padding: '0 22px 16px', fontFamily: FONT, fontSize: 12.5, color: t.t2 }}>Couldn’t save — {String(err?.message || err)}.</div>}
       </div>}
     </div>
   </div>

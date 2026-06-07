@@ -1,5 +1,5 @@
 // Capture — New note (saves to Supabase) or Meeting transcript (Synthesize via
-// real Claude, then Save persists a meeting note).
+// real Claude, then Save). Home project is a real picker.
 import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { useData } from '../DataContext'
@@ -13,15 +13,19 @@ const newId = () => (crypto?.randomUUID?.() || 'note-' + Date.now())
 
 export function CaptureScreen() {
   const { go } = useScribe()
-  const { reload } = useData()
+  const { areas, areaOfProject, reload } = useData()
+  const allProjects = areas.flatMap((a) => a.projects)
   const [mode, setMode] = useState('note') // note | meeting
+  const [home, setHome] = useState(allProjects[0]?.id || '')
   const [title, setTitle] = useState('')
   const [noteBody, setNoteBody] = useState('')
   const [transcript, setTranscript] = useState('')
-  const [synth, setSynth] = useState(null) // null | 'running' | 'done' | 'error'
+  const [synth, setSynth] = useState(null) // null | running | done | error
   const [result, setResult] = useState(null)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+
+  const homeArea = home ? (areaOfProject(home) || {}).id || null : null
 
   const runSynth = async () => {
     if (!transcript.trim()) return
@@ -34,11 +38,9 @@ export function CaptureScreen() {
     if (!title.trim() && !noteBody.trim()) return
     setSaving(true); setErr(null)
     const id = newId()
-    const body = noteBody.trim()
-      ? noteBody.trim().split(/\n{2,}/).map((p) => ({ p: p.trim() }))
-      : []
+    const body = noteBody.trim() ? noteBody.trim().split(/\n{2,}/).map((p) => ({ p: p.trim() })) : []
     const note = {
-      id, kind: 'note', title: title.trim() || 'Untitled', project: 'csp', area: 'arrow',
+      id, kind: 'note', title: title.trim() || 'Untitled', project: home || null, area: homeArea,
       projects: [], people: [], tags: [], date: today(), updated: 'now', indexed: false, status: 2,
       summary: noteBody.trim().slice(0, 160), terms: [], actions: [], body, related: [],
     }
@@ -51,7 +53,7 @@ export function CaptureScreen() {
     setSaving(true); setErr(null)
     const id = newId()
     const note = {
-      id, kind: 'meeting', title: title.trim() || 'Untitled meeting', project: 'csp', area: 'arrow',
+      id, kind: 'meeting', title: title.trim() || 'Untitled meeting', project: home || null, area: homeArea,
       projects: [], people: result.people || [], tags: result.tags || [], date: today(), updated: 'now',
       indexed: false, status: 1, summary: result.summary || '', terms: result.terms || [],
       actions: (result.actions || []).map((a) => ({ text: a.text, src: 'this meeting', owner: a.owner || 'open' })),
@@ -61,9 +63,9 @@ export function CaptureScreen() {
     catch (e) { setErr(e); setSaving(false) }
   }
 
-  const tab = (m, label, icon) => {
-    const on = mode === m
-    return <button onClick={() => { setMode(m); setSynth(null); setResult(null) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7,
+  const tab = (mTab, label, icon) => {
+    const on = mode === mTab
+    return <button onClick={() => { setMode(mTab); setSynth(null); setResult(null) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7,
       fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '8px 14px', borderRadius: 9,
       border: '1px solid ' + (on ? 'transparent' : t.line2), background: on ? t.sel : 'transparent',
       color: on ? t.t1 : t.t2 }}><Icon n={icon} s={15} c={on ? t.t1 : t.t2} />{label}</button>
@@ -72,12 +74,14 @@ export function CaptureScreen() {
   return <div style={{ padding: '28px 40px 60px', maxWidth: 740, margin: '0 auto' }}>
     <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>{tab('note', 'New note', 'pencil')}{tab('meeting', 'Meeting transcript', 'users')}</div>
 
-    {/* suggested home */}
+    {/* home picker */}
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, fontFamily: FONT, fontSize: 12.5, color: t.t2 }}>
-      <Icon n="sparkles" s={14} c={t.t1} />Suggested home
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, color: t.t1, background: t.accentBg,
-        border: '1px solid ' + t.accentLine, borderRadius: 20, padding: '3px 11px' }}><Icon n="folder" s={13} />Citrix CSP</span>
-      <button style={{ fontFamily: FONT, fontSize: 12, color: t.t3, background: 'transparent', border: 0, cursor: 'pointer', textDecoration: 'underline' }}>change</button>
+      <Icon n="folder" s={14} c={t.t1} />Home
+      <select value={home} onChange={(e) => setHome(e.target.value)}
+        style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: t.t1, background: t.accentBg, border: '1px solid ' + t.accentLine, borderRadius: 20, padding: '4px 11px', cursor: 'pointer' }}>
+        <option value="">Library (no project)</option>
+        {allProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
     </div>
 
     {err && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, marginBottom: 14 }}>Couldn’t save — {String(err?.message || err)}.</div>}
@@ -104,7 +108,7 @@ export function CaptureScreen() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
         <Btn kind="primary" icon={synth === 'running' ? 'loader-2' : 'sparkles'} onClick={runSynth}>
           {synth === 'running' ? 'Synthesizing…' : 'Synthesize'}</Btn>
-        <span style={{ fontFamily: FONT, fontSize: 12, color: t.t3 }}>Extracts summary, action items, people & terms · auto-tags to its project</span>
+        <span style={{ fontFamily: FONT, fontSize: 12, color: t.t3 }}>Extracts summary, action items, people & terms</span>
       </div>
 
       {synth === 'done' && result && <div style={{ marginTop: 22, border: '1px solid ' + t.line, borderRadius: 12, overflow: 'hidden' }}>
@@ -121,7 +125,7 @@ export function CaptureScreen() {
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', fontFamily: FONT, fontSize: 13.5, color: t.t1 }}>
               <span style={{ width: 14, height: 14, border: '1.5px solid ' + t.t3, borderRadius: 4, flex: 'none' }} />{a.text}{a.owner ? <span style={{ color: t.t3, fontSize: 11 }}> · {a.owner}</span> : null}</div>)}
           <div style={{ display: 'flex', gap: 9, marginTop: 16 }}>
-            <Btn kind="primary" icon={saving ? 'loader-2' : 'folder'} onClick={saveMeeting}>{saving ? 'Saving…' : 'Save to Citrix CSP'}</Btn>
+            <Btn kind="primary" icon={saving ? 'loader-2' : 'folder'} onClick={saveMeeting}>{saving ? 'Saving…' : 'Save meeting'}</Btn>
             <Btn kind="ghost" onClick={() => { setSynth(null); setResult(null) }}>Discard</Btn>
           </div>
         </div>

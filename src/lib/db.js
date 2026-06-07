@@ -1,17 +1,12 @@
 // Scribe data access — load the structural tree + documents + inbox from
-// Supabase (per-user RLS), and seed the demo fixtures once on first run.
-//
-// DB rows are snake_case; the app uses the prototype's camelCase shapes. These
-// mappers are the single translation point. Related links still carry a `title`
-// (resolved by title in the UI) — moving to id-resolution is a later refinement.
+// Supabase (per-user RLS), seed demo fixtures on first run, and read/write notes.
 import { supabase } from './supabase'
 import { SEED_AREAS, SEED_NOTES, SEED_INBOX } from '../data'
 
-// ── row → app shape ────────────────────────────────────────────────
+// ── row -> app shape ───────────────────────────────────────────────
 function mapNote(r) {
   return {
-    id: r.id, kind: r.kind, title: r.title,
-    project: r.project, area: r.area,
+    id: r.id, kind: r.kind, title: r.title, project: r.project, area: r.area,
     projects: r.projects || [], people: r.people || [], tags: r.tags || [],
     date: r.date, updated: r.updated, indexed: r.indexed, status: r.status,
     rawWords: r.raw_words || undefined, summary: r.summary || undefined,
@@ -49,7 +44,7 @@ export async function loadAll() {
   }
 }
 
-// ── app shape → row (for seeding / writes) ─────────────────────────
+// ── app shape -> row ───────────────────────────────────────────────
 function noteRow(n) {
   return {
     id: n.id, kind: n.kind, title: n.title, project: n.project ?? null, area: n.area ?? null,
@@ -85,13 +80,10 @@ async function _seed() {
   const projRows = SEED_AREAS.flatMap((a) => a.projects.map((p, i) => ({
     id: p.id, area_id: a.id, name: p.name, status: p.status, due: p.due ?? null, sort: i,
   })))
-  const noteRows = SEED_NOTES.map(noteRow)
-  const inboxRows = SEED_INBOX.map(inboxRow)
-
   const r1 = await supabase.from('scribe_areas').insert(areaRows)
   const r2 = await supabase.from('scribe_projects').insert(projRows)
-  const r3 = await supabase.from('scribe_notes').insert(noteRows)
-  const r4 = await supabase.from('scribe_inbox').insert(inboxRows)
+  const r3 = await supabase.from('scribe_notes').insert(SEED_NOTES.map(noteRow))
+  const r4 = await supabase.from('scribe_inbox').insert(SEED_INBOX.map(inboxRow))
   const err = r1.error || r2.error || r3.error || r4.error
   if (err) throw err
   return true
@@ -103,19 +95,27 @@ export async function createNote(note) {
   if (error) throw error
 }
 
-// Remove a triaged inbox capture.
-export async function deleteInbox(id) {
-  const { error } = await supabase.from('scribe_inbox').delete().eq('id', id)
+// Update fields on an existing note. patch keys are app-shape (camelCase).
+const PATCH_COLS = {
+  title: 'title', body: 'body', summary: 'summary', tags: 'tags', actions: 'actions',
+  people: 'people', terms: 'terms', status: 'status', kind: 'kind', project: 'project',
+  area: 'area', indexed: 'indexed', rawWords: 'raw_words',
+}
+export async function updateNote(id, patch) {
+  const row = { updated: patch.updated ?? 'now', updated_at: new Date().toISOString() }
+  for (const k in patch) if (PATCH_COLS[k]) row[PATCH_COLS[k]] = patch[k]
+  const { error } = await supabase.from('scribe_notes').update(row).eq('id', id)
   if (error) throw error
 }
 
-// Update fields on an existing note. patch keys are app-shape (camelCase).
-export async function updateNote(id, patch) {
-  const row = { updated: patch.updated ?? 'now', updated_at: new Date().toISOString() }
-  if ('title' in patch) row.title = patch.title
-  if ('body' in patch) row.body = patch.body
-  if ('summary' in patch) row.summary = patch.summary
-  if ('tags' in patch) row.tags = patch.tags
-  const { error } = await supabase.from('scribe_notes').update(row).eq('id', id)
+// Delete a note.
+export async function deleteNote(id) {
+  const { error } = await supabase.from('scribe_notes').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Remove a triaged inbox capture.
+export async function deleteInbox(id) {
+  const { error } = await supabase.from('scribe_inbox').delete().eq('id', id)
   if (error) throw error
 }

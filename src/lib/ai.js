@@ -67,3 +67,34 @@ export async function synthesizeTranscript(transcript) {
   const raw = await claudeComplete(user, { system, max_tokens: 1000 })
   return extractJSON(raw) || { summary: raw, actions: [], people: [], terms: [], tags: [] }
 }
+
+// ── Note Claude-rail actions ───────────────────────────────────────
+const noteContext = (note) => {
+  const body = (note.body || []).map((b) => b.p || (b.ul ? b.ul.map((i) => '- ' + i).join('\n') : '')).join('\n')
+  return `Title: ${note.title}\n${note.summary ? 'Summary: ' + note.summary + '\n' : ''}Body:\n${body}`
+}
+
+export async function summarizeNote(note) {
+  const system = 'You summarize a note in 2–3 calm sentences. Plain prose, no preamble.'
+  return (await claudeComplete(noteContext(note), { system, max_tokens: 300 })).trim()
+}
+
+export async function extractActions(note) {
+  const system = 'You extract concrete action items from a note. Return strict JSON only.'
+  const user = noteContext(note) + '\n\nReturn ONLY JSON: {"actions":[{"text":string,"owner":string}]}'
+  const j = extractJSON(await claudeComplete(user, { system, max_tokens: 600 }))
+  return (j?.actions || []).map((a) => ({ text: a.text, src: 'extracted', owner: a.owner || 'open' }))
+}
+
+export async function suggestTags(note) {
+  const system = 'You suggest 3–6 short lowercase topic tags for a note. Return strict JSON only.'
+  const user = noteContext(note) + '\n\nReturn ONLY JSON: {"tags":string[]}'
+  const j = extractJSON(await claudeComplete(user, { system, max_tokens: 200 }))
+  return (j?.tags || []).map((s) => String(s).toLowerCase().trim()).filter(Boolean)
+}
+
+export async function rewriteNote(note) {
+  const system = 'You rewrite a note body to be clearer and tighter, preserving meaning, structure, ' +
+    'and any [[links]]. Output ONLY the rewritten body in plain markdown (paragraphs, - lists).'
+  return (await claudeComplete(noteContext(note), { system, max_tokens: 1200 })).trim()
+}

@@ -1,6 +1,5 @@
-// Inbox / triage — Accept creates a real note (in the suggested project, or
-// homed at the area for multi-project) and clears the capture. Other actions
-// dismiss locally for the session.
+// Inbox / triage — Accept creates a real note (suggested project, picked
+// project, or area home for multi) and clears the capture.
 import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { useData } from '../DataContext'
@@ -12,17 +11,19 @@ const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day
 
 export function InboxScreen() {
   const { go } = useScribe()
-  const { inbox, projectName, areaOfProject, reload } = useData()
+  const { inbox, areas, projectName, areaOfProject, reload } = useData()
+  const allProjects = areas.flatMap((a) => a.projects)
   const [hidden, setHidden] = useState([])
+  const [picks, setPicks] = useState({})
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
   const items = inbox.filter((x) => !hidden.includes(x.id))
   const dismiss = (id) => setHidden((h) => [...h, id])
 
-  const accept = async (c) => {
+  const accept = async (c, overrideProject) => {
     setBusy(c.id); setErr(null)
     const m = c.suggestMulti
-    const projectId = m ? null : (c.suggest?.project || null)
+    const projectId = overrideProject || (m ? null : (c.suggest?.project || null))
     const areaId = m ? m.home : (projectId ? (areaOfProject(projectId) || {}).id : null) || null
     const id = (crypto?.randomUUID?.() || 'note-' + Date.now())
     const note = {
@@ -92,20 +93,30 @@ export function InboxScreen() {
                 <span style={{ color: t.t3 }}>·</span>{c.tags.map((tg) => <Tag key={tg}>{tg}</Tag>)}
               </div>
             : <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: FONT, fontSize: 12.5, color: t.t2 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: t.t3 }}><Icon n="folder-off" s={14} />no confident project — stays in inbox</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: t.t3 }}><Icon n="folder-off" s={14} />no confident project — pick one</span>
                 <span style={{ color: t.t3 }}>·</span>{c.tags.map((tg) => <Tag key={tg}>{tg}</Tag>)}
               </div>}
         </div>
 
-        <div style={{ display: 'flex', gap: 9 }}>
+        <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
           {m
             ? <><Btn kind="primary" size="sm" icon={loading ? 'loader-2' : 'git-fork'} onClick={() => accept(c)}>Accept split</Btn>
-                <Btn kind="outline" size="sm" onClick={() => accept(c)}>Adjust routing</Btn>
                 <Btn kind="ghost" size="sm" onClick={() => dismiss(c.id)}>Leave in inbox</Btn></>
             : c.suggest
             ? <><Btn kind="primary" size="sm" icon={loading ? 'loader-2' : undefined} onClick={() => accept(c)}>Accept → {proj}</Btn>
-                <Btn kind="outline" size="sm" onClick={() => dismiss(c.id)}>Leave in inbox</Btn></>
-            : <><Btn kind="outline" size="sm" icon="folder" onClick={() => accept(c)}>File as note</Btn>
+                <select value={picks[c.id] || ''} onChange={(e) => setPicks((p) => ({ ...p, [c.id]: e.target.value }))}
+                  style={{ fontFamily: FONT, fontSize: 12, color: t.t1, background: t.card, border: '1px solid ' + t.line2, borderRadius: 8, padding: '6px 9px' }}>
+                  <option value="">file elsewhere…</option>
+                  {allProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                {picks[c.id] && <Btn kind="outline" size="sm" onClick={() => accept(c, picks[c.id])}>File</Btn>}
+                <Btn kind="ghost" size="sm" onClick={() => dismiss(c.id)}>Leave in inbox</Btn></>
+            : <><select value={picks[c.id] || ''} onChange={(e) => setPicks((p) => ({ ...p, [c.id]: e.target.value }))}
+                  style={{ fontFamily: FONT, fontSize: 12, color: t.t1, background: t.card, border: '1px solid ' + t.line2, borderRadius: 8, padding: '6px 9px' }}>
+                  <option value="">Pick project…</option>
+                  {allProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <Btn kind="primary" size="sm" icon={loading ? 'loader-2' : undefined} onClick={() => picks[c.id] && accept(c, picks[c.id])}>File as note</Btn>
                 <Btn kind="ghost" size="sm" onClick={() => dismiss(c.id)}>Keep in inbox</Btn></>}
         </div>
       </div>
