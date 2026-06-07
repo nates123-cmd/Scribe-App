@@ -68,7 +68,14 @@ function inboxRow(c) {
 
 // Seed the demo fixtures once, under the logged-in user (RLS sets user_id via
 // the column default = auth.uid()). No-op if any notes already exist.
-export async function seedIfEmpty() {
+let _seedPromise = null
+export function seedIfEmpty() {
+  if (!_seedPromise) _seedPromise = _seed()
+  return _seedPromise
+}
+// Memoized so React StrictMode's double-effect (or a reload) can't race two
+// concurrent seeds into a primary-key collision.
+async function _seed() {
   const { count, error } = await supabase
     .from('scribe_notes').select('id', { count: 'exact', head: true })
   if (error) throw error
