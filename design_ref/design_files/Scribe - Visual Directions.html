@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scribe — Direction B · Accent options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.26.0/dist/tabler-icons.min.css" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="scribe-note-editor.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+// Direction B locked: single humanist sans (Hanken Grotesk), cool-neutral
+// graphite base. This study varies only the single signature accent.
+const F_B = {
+  title: "'Hanken Grotesk', sans-serif", body: "'Hanken Grotesk', sans-serif",
+  meta: "'Hanken Grotesk', sans-serif", ui: "'Hanken Grotesk', sans-serif",
+  titleWeight: 600, relWeight: 600, titleSpacing: '-0.02em',
+};
+
+// Cool-neutral graphite base (accent injected per option) ───────────
+const BASE = {
+  light: { bg:'#f4f5f6', panel:'#fbfbfc', card:'#ffffff', line:'#e7e9eb', line2:'#d6dadd',
+    t1:'#1b2024', t2:'#5a626a', t3:'#8b939b', tagBg:'#eceef0', tagText:'#4a525a' },
+  dark: { bg:'#121517', panel:'#171b1e', card:'#1a1e22', line:'#262b30', line2:'#333a40',
+    t1:'#e4e8eb', t2:'#8b949d', t3:'#5c656d', tagBg:'#232a2f', tagText:'#9fb0bd' },
+};
+
+// Six restrained accents — same calm chroma family, hue varied. Each pairs a
+// light value with a lifted dark value so contrast holds in both modes.
+const ACCENTS = [
+  { key:'pine',     name:'Pine',       sub:'green · original',     light:'#277059', dark:'#4fb89e' },
+  { key:'ink',      name:'Ink blue',   sub:'classic, calm',        light:'#2f5fa3', dark:'#7ba6e8' },
+  { key:'slate',    name:'Slate',      sub:'desaturated blue-grey',light:'#4f6b86', dark:'#95b0cc' },
+  { key:'plum',     name:'Plum',       sub:'quiet violet',         light:'#6f55a0', dark:'#ab93dd' },
+  { key:'clay',     name:'Terracotta', sub:'warm, earthy',         light:'#b0573a', dark:'#e0926f' },
+  { key:'graphite', name:'Graphite',   sub:'monochrome / inky',    light:'#2e3439', dark:'#c7ced4' },
+];
+
+function hexToRgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function tokens(mode, hex) {
+  const base = BASE[mode];
+  return { ...base, accent: hex, onAccent: mode === 'light' ? '#ffffff' : base.bg,
+    accentBg: hexToRgba(hex, mode === 'light' ? 0.10 : 0.13),
+    accentLine: hexToRgba(hex, mode === 'light' ? 0.26 : 0.30) };
+}
+
+const W = 1200, H = 1000;
+const board = (mode, acc) => (
+  <DCArtboard key={mode[0] + '_' + acc.key} id={mode[0] + '_' + acc.key} label={acc.name + ' · ' + acc.sub}
+    width={W} height={H} style={{ background: BASE[mode].bg }}>
+    <ScribeNote t={tokens(mode, acc[mode])} f={F_B} mode={mode} />
+  </DCArtboard>
+);
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="light" title="B · Accent options — Light"
+        subtitle="Hanken Grotesk · cool-neutral graphite · one restrained signature accent. Same base, six hues.">
+        {ACCENTS.map((a) => board('light', a))}
+        <DCPostIt top={-4} left={W * ACCENTS.length + 70} rotate={-2} width={216}>
+          Pine and Slate stay most neutral / tool-like. Ink reads classic. Plum & Terracotta add character. Graphite = no-color, maximally calm.
+        </DCPostIt>
+      </DCSection>
+
+      <DCSection id="dark" title="B · Accent options — Dark"
+        subtitle="Each accent lifted for dark so contrast holds against the graphite base.">
+        {ACCENTS.map((a) => board('dark', a))}
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
