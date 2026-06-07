@@ -1,20 +1,52 @@
-// Note editor (note + meeting variants) — reading column + Related panel + Claude rail.
-// Ported 1:1 from the prototype's scribe-screens-2a.jsx -> NoteScreen.
+// Note editor (note + meeting variants) — reading column + Related panel + Claude
+// rail. Title + body are editable (markdown text <-> structured blocks), saved
+// to Supabase. Not block-based (per brief): body is one markdown document.
 import { Fragment, useState } from 'react'
 import { useScribe } from '../ScribeCtx'
-import { t, FONT } from '../theme/tokens'
-import { Icon, Label, Tag, Person, KIND, Stepper } from '../kit'
 import { useData } from '../DataContext'
+import { t, FONT } from '../theme/tokens'
+import { Icon, Label, Tag, Person, KIND, Stepper, Btn } from '../kit'
+import { updateNote } from '../lib/db'
+
+// body blocks <-> editable markdown text
+const blocksToText = (blocks = []) => blocks.map((b) => {
+  if (b.p) return b.p
+  if (b.ul) return b.ul.map((i) => '- ' + i).join('\n')
+  if (b.links) return b.links.map((l) => `[[${l}]]`).join(' ')
+  return ''
+}).join('\n\n')
+
+const textToBlocks = (text) => text.split(/\n{2,}/).map((chunk) => {
+  const lines = chunk.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (!lines.length) return null
+  if (lines.every((l) => l.startsWith('- '))) return { ul: lines.map((l) => l.slice(2).trim()) }
+  const links = chunk.match(/\[\[(.+?)\]\]/g)
+  const stripped = chunk.replace(/\[\[(.+?)\]\]/g, '').replace(/(\s|,|and)/gi, '').trim()
+  if (links && stripped === '') return { links: links.map((m) => m.slice(2, -2)) }
+  return { p: chunk.replace(/\n/g, ' ').trim() }
+}).filter(Boolean)
 
 export function NoteScreen() {
   const { route, go } = useScribe()
-  const { notes: NOTES, noteById, projectName, areaName, areas: AREAS } = useData()
+  const { notes: NOTES, noteById, projectName, areaName, areas: AREAS, reload } = useData()
   const n = noteById(route.id) || NOTES[0]
   const [railOpen, setRailOpen] = useState(false)
   const [rawOpen, setRawOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [eTitle, setETitle] = useState('')
+  const [eBody, setEBody] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState(null)
   const isMeeting = n.kind === 'meeting'
   const proj = projectName(n.project)
   const area = n.area && (AREAS.find((a) => a.id === n.area) || {}).name
+
+  const startEdit = () => { setETitle(n.title); setEBody(blocksToText(n.body || [])); setErr(null); setEditing(true) }
+  const saveEdit = async () => {
+    setSaving(true); setErr(null)
+    try { await updateNote(n.id, { title: eTitle.trim() || 'Untitled', body: textToBlocks(eBody) }); await reload(); setEditing(false) }
+    catch (e) { setErr(e) } finally { setSaving(false) }
+  }
 
   const claudeActions = [
     ['list', 'Summarize'], ['checkbox', 'Extract action items'], ['tag', 'Suggest tags'],
@@ -48,13 +80,24 @@ export function NoteScreen() {
           <button onClick={() => go(proj ? { screen: 'project', id: n.project } : { screen: 'library' })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 11.5, color: t.t3, background: 'transparent', border: 0, cursor: 'pointer' }}>
             <Icon n="chevron-left" s={13} />{['Work', area, proj].filter(Boolean).join(' · ') || 'Library'}</button>
-          <button onClick={() => setRailOpen((o) => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7,
-            fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: railOpen ? t.t1 : t.t2, background: railOpen ? t.sel : 'transparent',
-            border: '1px solid ' + (railOpen ? 'transparent' : t.line2), borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>
-            <Icon n="sparkles" s={14} />Claude</button>
+          {editing
+            ? <span style={{ display: 'flex', gap: 8 }}>
+                <Btn kind="primary" size="sm" icon={saving ? 'loader-2' : 'circle-check'} onClick={saveEdit}>{saving ? 'Saving…' : 'Save'}</Btn>
+                <Btn kind="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Btn>
+              </span>
+            : <span style={{ display: 'flex', gap: 8 }}>
+                <Btn kind="outline" size="sm" icon="pencil" onClick={startEdit}>Edit</Btn>
+                <button onClick={() => setRailOpen((o) => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7,
+                  fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: railOpen ? t.t1 : t.t2, background: railOpen ? t.sel : 'transparent',
+                  border: '1px solid ' + (railOpen ? 'transparent' : t.line2), borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>
+                  <Icon n="sparkles" s={14} />Claude</button>
+              </span>}
         </div>
 
-        <h1 style={{ fontFamily: FONT, fontSize: 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.025em', lineHeight: 1.12, margin: 0 }}>{n.title}</h1>
+        {editing
+          ? <input value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="Untitled"
+              style={{ width: '100%', border: 0, outline: 0, background: 'transparent', fontFamily: FONT, fontSize: 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.025em', lineHeight: 1.12 }} />
+          : <h1 style={{ fontFamily: FONT, fontSize: 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.025em', lineHeight: 1.12, margin: 0 }}>{n.title}</h1>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '14px 0 0' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11.5, color: t.t2 }}>
@@ -78,12 +121,12 @@ export function NoteScreen() {
           <span style={{ display: 'flex', gap: 6 }}>{n.tags.map((tg) => <Tag key={tg}>{tg}</Tag>)}</span>
         </div>
 
-        {n.summary && <div style={{ background: t.accentBg, border: '1px solid ' + t.accentLine, borderRadius: 12, padding: '14px 16px', marginBottom: 22 }}>
+        {!editing && n.summary && <div style={{ background: t.accentBg, border: '1px solid ' + t.accentLine, borderRadius: 12, padding: '14px 16px', marginBottom: 22 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}><Icon n="sparkles" s={12} c={t.t1} /><Label>Summary</Label></div>
           <div style={{ fontFamily: FONT, fontSize: 14.5, color: t.t1, lineHeight: 1.6 }}>{n.summary}</div>
         </div>}
 
-        {isMeeting && n.actions && <>
+        {!editing && isMeeting && n.actions && <>
           <Label style={{ marginBottom: 8 }}>Open action items · rolled up</Label>
           <div style={{ marginBottom: 24 }}>{n.actions.map((a, i) =>
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '10px 6px', borderBottom: '1px solid ' + t.line }}>
@@ -102,15 +145,22 @@ export function NoteScreen() {
         </>}
 
         <Label style={{ marginBottom: 10 }}>Notes</Label>
-        <div style={{ fontFamily: FONT, fontSize: 15, color: t.t1, lineHeight: 1.75 }}>{renderBody(n.body || [])}</div>
+        {editing
+          ? <>
+              <textarea value={eBody} onChange={(e) => setEBody(e.target.value)} placeholder="Write in markdown — paragraphs, - bullet lists, [[note links]]."
+                style={{ width: '100%', minHeight: 320, border: '1px solid ' + t.line2, borderRadius: 10, padding: '14px 16px', outline: 0,
+                  background: t.card, resize: 'vertical', fontFamily: FONT, fontSize: 15, lineHeight: 1.75, color: t.t1 }} />
+              {err && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, marginTop: 10 }}>Couldn’t save — {String(err?.message || err)}.</div>}
+            </>
+          : <div style={{ fontFamily: FONT, fontSize: 15, color: t.t1, lineHeight: 1.75 }}>{renderBody(n.body || [])}</div>}
 
-        {isMeeting && <div onClick={() => setRawOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 22,
+        {!editing && isMeeting && <div onClick={() => setRawOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 22,
           padding: '11px 13px', border: '1px solid ' + t.line, borderRadius: 10, background: t.card, cursor: 'pointer' }}>
           <Icon n={rawOpen ? 'chevron-down' : 'chevron-right'} s={14} c={t.t3} />
           <span style={{ fontFamily: FONT, fontSize: 11.5, fontWeight: 600, color: t.t2 }}>Raw transcript</span>
           <span style={{ fontFamily: FONT, fontSize: 10.5, color: t.t3 }}>{n.rawWords} words · source material</span>
         </div>}
-        {isMeeting && rawOpen && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, lineHeight: 1.7, padding: '14px 13px 0', whiteSpace: 'pre-wrap' }}>
+        {!editing && isMeeting && rawOpen && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, lineHeight: 1.7, padding: '14px 13px 0', whiteSpace: 'pre-wrap' }}>
           {'[00:02] Jon: Let’s start with sequencing… we can’t land pricing tiers until legal closes novation.\n[00:14] You: Agreed — I’ll confirm telemetry scope with Arrowsphere by Thursday.\n[00:31] Haritha: EMEA segmentation is still open on my side…'}</div>}
       </div>
     </div>

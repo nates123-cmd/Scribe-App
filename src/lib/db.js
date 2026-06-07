@@ -108,3 +108,14 @@ export async function deleteInbox(id) {
   const { error } = await supabase.from('scribe_inbox').delete().eq('id', id)
   if (error) throw error
 }
+
+// Update fields on an existing note. patch keys are app-shape (camelCase).
+export async function updateNote(id, patch) {
+  const row = { updated: patch.updated ?? 'now', updated_at: new Date().toISOString() }
+  if ('title' in patch) row.title = patch.title
+  if ('body' in patch) row.body = patch.body
+  if ('summary' in patch) row.summary = patch.summary
+  if ('tags' in patch) row.tags = patch.tags
+  const { error } = await supabase.from('scribe_notes').update(row).eq('id', id)
+  if (error) throw error
+}
