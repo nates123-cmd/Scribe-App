@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Tag, Btn } from '../kit'
-import { INBOX, projectName } from '../data'
+import { useData } from '../DataContext'
 
 export function InboxScreen() {
   const { go } = useScribe()
-  const [items, setItems] = useState(INBOX)
-  const remove = (id) => setItems((xs) => xs.filter((x) => x.id !== id))
+  const { inbox, projectName } = useData()
+  const [hidden, setHidden] = useState([])
+  const items = inbox.filter((x) => !hidden.includes(x.id))
+  const remove = (id) => setHidden((h) => [...h, id])
 
   return <div style={{ padding: '28px 40px 60px', maxWidth: 820, margin: '0 auto' }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
@@ -17,7 +19,7 @@ export function InboxScreen() {
         <h1 style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em', margin: 0 }}>Inbox</h1>
         <span style={{ fontFamily: FONT, fontSize: 13, color: t.t3 }}>{items.length} to triage</span>
       </div>
-      {items.length > 0 && <Btn kind="outline" icon="sparkles" onClick={() => setItems([])}>Triage all</Btn>}
+      {items.length > 0 && <Btn kind="outline" icon="sparkles" onClick={() => setHidden(inbox.map((x) => x.id))}>Triage all</Btn>}
     </div>
 
     {items.length === 0 && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,

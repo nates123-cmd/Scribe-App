@@ -5,10 +5,12 @@ import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, KIND } from '../kit'
-import { ASK_ANSWERS, noteById } from '../data'
+import { ASK_ANSWERS } from '../data'
+import { useData } from '../DataContext'
 
 export function AskScreen() {
   const { route, go } = useScribe()
+  const { noteById } = useData()
   const data = (route.scope && ASK_ANSWERS[route.scope]) || ASK_ANSWERS.default
   const [q, setQ] = useState(route.query || 'what did Jon say the other day?')
   const [state, setState] = useState(route.query === '' ? 'empty' : 'answered') // empty | running | answered

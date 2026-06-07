@@ -3,11 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './styles.css'
 import App from './App.jsx'
 import { AuthGate } from './auth/AuthGate.jsx'
+import { DataProvider } from './DataContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthGate>
-      <App />
+      <DataProvider>
+        <App />
+      </DataProvider>
     </AuthGate>
   </StrictMode>,
 )

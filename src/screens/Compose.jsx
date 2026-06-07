@@ -5,10 +5,12 @@ import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Btn } from '../kit'
-import { COMPOSE_TYPES, noteById, projectName } from '../data'
+import { COMPOSE_TYPES } from '../data'
+import { useData } from '../DataContext'
 
 export function ComposeScreen() {
   const { route, go } = useScribe()
+  const { noteById, projectName } = useData()
   const srcNote = route.noteId && noteById(route.noteId)
   const srcProj = route.projectId && projectName(route.projectId)
   const srcLabel = srcNote ? srcNote.title : srcProj || 'Citrix CSP'

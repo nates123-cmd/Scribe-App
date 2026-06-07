@@ -4,10 +4,12 @@ import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Tag, Person, Btn, KIND } from '../kit'
-import { NOTES, TOPICS, projectName, areaName } from '../data'
+import { TOPICS } from '../data'
+import { useData } from '../DataContext'
 
 export function LibraryScreen() {
   const { route, go } = useScribe()
+  const { notes: NOTES, projectName, areaName } = useData()
   const [kind, setKind] = useState('all')
   const [q, setQ] = useState('')
   const [tag, setTag] = useState(route.tag || null)

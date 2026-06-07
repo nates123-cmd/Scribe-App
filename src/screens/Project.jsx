@@ -5,10 +5,12 @@ import { useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Btn, StatusPill, KIND } from '../kit'
-import { projectName, areaOfProject, areaName, ownedNotes, linkedMeetings, actionsForProject, BRIEFINGS } from '../data'
+import { BRIEFINGS } from '../data'
+import { useData } from '../DataContext'
 
 export function ProjectScreen() {
   const { route, go } = useScribe()
+  const { projectName, areaOfProject, areaName, ownedNotes, linkedMeetings, actionsForProject } = useData()
   const pid = route.id || 'csp'
   const pname = projectName(pid) || 'Project'
   const area = areaOfProject(pid)

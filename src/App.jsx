@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ScribeCtx } from './ScribeCtx'
+import { useData } from './DataContext'
 import { t, FONT } from './theme/tokens'
 import { Icon } from './kit'
-import { AREAS, INBOX, TOPICS } from './data'
+import { TOPICS } from './data'
 
 import { LibraryScreen } from './screens/Library'
 import { InboxScreen } from './screens/Inbox'
@@ -14,10 +15,11 @@ import { ComposeScreen } from './screens/Compose'
 
 // ── Sidebar ───────────────────────────────────────────────────────
 function Sidebar({ route, go }) {
-  const [areas, setAreas] = useState(() => AREAS.map((a) => ({ id: a.id, open: a.open })))
-  const isOpen = (id) => (areas.find((a) => a.id === id) || {}).open
-  const toggle = (id) => setAreas((xs) => xs.map((a) => (a.id === id ? { ...a, open: !a.open } : a)))
-  const inboxCount = INBOX.length
+  const { areas, inbox } = useData()
+  const [openOverride, setOpenOverride] = useState({}) // id -> bool, overrides area.open
+  const isOpen = (a) => openOverride[a.id] ?? a.open
+  const toggle = (id) => setOpenOverride((o) => ({ ...o, [id]: !(o[id] ?? (areas.find((a) => a.id === id) || {}).open) }))
+  const inboxCount = inbox.length
 
   const navItem = (icon, text, screen, badge) => {
     const active = route.screen === screen
@@ -42,18 +44,18 @@ function Sidebar({ route, go }) {
 
     <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: t.t3, padding: '20px 10px 8px' }}>Areas</div>
     <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
-      {AREAS.map((a) => <div key={a.id}>
+      {areas.map((a) => <div key={a.id}>
         <div onClick={() => toggle(a.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: t.t2, cursor: 'pointer', padding: '6px 10px', borderRadius: 7 }}
           onMouseEnter={(e) => (e.currentTarget.style.background = t.sel)} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-          <Icon n={isOpen(a.id) ? 'chevron-down' : 'chevron-right'} s={13} c={t.t3} />{a.name}</div>
-        {isOpen(a.id) && a.projects.map((p) => { const active = route.screen === 'project' && route.id === p.id
+          <Icon n={isOpen(a) ? 'chevron-down' : 'chevron-right'} s={13} c={t.t3} />{a.name}</div>
+        {isOpen(a) && a.projects.map((p) => { const active = route.screen === 'project' && route.id === p.id
           return <div key={p.id} onClick={() => go({ screen: 'project', id: p.id })}
             style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT, fontSize: 12.5, fontWeight: active ? 600 : 500,
               color: active ? t.t1 : t.t2, cursor: 'pointer', padding: '6px 10px 6px 30px', borderRadius: 7, margin: '1px 0',
               background: active ? t.sel : 'transparent', borderLeft: '2px solid ' + (active ? t.accent : 'transparent') }}
             onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = t.sel }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
             <Icon n="folder" s={13} c={active ? t.t1 : t.t3} />{p.name}</div> })}
-        {isOpen(a.id) && a.projects.length === 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: t.t3, padding: '5px 10px 5px 30px' }}>empty</div>}
+        {isOpen(a) && a.projects.length === 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: t.t3, padding: '5px 10px 5px 30px' }}>empty</div>}
       </div>)}
     </div>
 
@@ -107,7 +109,14 @@ function Screen({ route }) {
   }
 }
 
+function FullScreenMsg({ children, spin }) {
+  return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+    background: t.bg, color: t.t2, fontFamily: FONT, fontSize: 14 }}>
+    {spin && <Icon n="loader-2" s={18} c={t.t1} />}{children}</div>
+}
+
 export default function App() {
+  const { status, error, reload } = useData()
   const [theme, setThemeRaw] = useState(() => localStorage.getItem('scribe-theme') || 'light')
   const [route, setRoute] = useState(() => {
     try { return JSON.parse(localStorage.getItem('scribe-route')) || { screen: 'library' } } catch { return { screen: 'library' } }
@@ -122,6 +131,12 @@ export default function App() {
 
   const ctx = useMemo(() => ({ t, theme, setTheme, route, go }), [theme, route])
   const isNote = route.screen === 'note'
+
+  if (status === 'loading') return <FullScreenMsg spin>Loading your notes…</FullScreenMsg>
+  if (status === 'error') return <FullScreenMsg>
+    Couldn’t load — {String(error?.message || error)}.&nbsp;
+    <span onClick={reload} style={{ color: t.t1, textDecoration: 'underline', cursor: 'pointer' }}>retry</span>
+  </FullScreenMsg>
 
   return <ScribeCtx.Provider value={ctx}>
     <div style={{ display: 'flex', height: '100vh', background: t.bg, color: t.t1, fontFamily: FONT }}>

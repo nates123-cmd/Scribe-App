@@ -3,7 +3,7 @@
 // build / a later pass replaces them with real Supabase queries (see BUILD.md
 // "Data wiring"). Keep the shapes; keep the helpers' roll-up semantics.
 
-export const AREAS = [
+export const SEED_AREAS = [
   { id: 'arrow', name: 'Arrow', open: true, projects: [
     { id: 'csp', name: 'Citrix CSP', status: 'Active', due: 'Oct 3' },
     { id: 'sgs', name: 'SGS Tracker', status: 'Active' },
@@ -15,7 +15,7 @@ export const AREAS = [
   { id: 'brain', name: 'Second Brain', open: false, projects: [] },
 ]
 
-export const NOTES = [
+export const SEED_NOTES = [
   { id: 'csp-align', kind: 'meeting', title: 'Commercial Alignment — CSP', project: 'csp', area: 'arrow',
     people: ['Jon', 'Haritha'], tags: ['commercial', 'pricing', 'novation'], date: 'Jun 4, 2026', updated: '2h',
     indexed: true, status: 2, rawWords: '4,210',
@@ -273,38 +273,10 @@ export const NOTES = [
     body: [{ ul: ['Compose', 'Draft', 'Assemble', 'Spin up'] }], related: []},
 ]
 
-export const noteById = (id) => NOTES.find((n) => n.id === id)
-export const projectName = (id) => {
-  for (const a of AREAS) { const p = a.projects.find((x) => x.id === id); if (p) return p.name }
-  return null
-}
-export const areaOfProject = (id) => AREAS.find((a) => a.projects.some((p) => p.id === id))
-export const areaName = (id) => { const a = AREAS.find((x) => x.id === id); return a ? a.name : null }
-export const notesInProject = (id) => NOTES.filter((n) => n.project === id)
-// Owned = structural home is this project. Linked = homed elsewhere (e.g. the
-// area) but explicitly touches this project via `projects[]`.
-export const ownedNotes = (id) => NOTES.filter((n) => n.project === id)
-export const linkedMeetings = (id) => NOTES.filter((n) => n.project !== id && (n.projects || []).includes(id))
-// Roll up action items BY ASSIGNMENT, not by meeting ownership: an action
-// belongs to a.project if set, else to the meeting's own home project.
-export const actionsForProject = (id) => {
-  const out = []
-  NOTES.forEach((n) => {
-    if (n.kind !== 'meeting' || !n.actions) return
-    n.actions.forEach((a) => {
-      const belongs = a.project ? a.project === id : n.project === id
-      if (belongs) out.push({ ...a, meeting: n.title, mid: n.id, linked: n.project !== id })
-    })
-  })
-  return out
-}
-// All free-text tags actually in use, and the fixed topic set.
-export const ALL_TAGS = [...new Set(NOTES.flatMap((n) => n.tags))].sort()
 export const TOPICS = ['novation', 'pricing', 'arm', 'proposal', 'review']
-export const notesByTag = (tag) => NOTES.filter((n) => n.tags.includes(tag))
 
 // Inbox captures (untriaged)
-export const INBOX = [
+export const SEED_INBOX = [
   { id: 'in-arrow', title: 'Arrow weekly — combined notes', src: 'apple shortcut', srcIcon: 'brand-apple',
     snippet: "Covered CSP novation (Jon escalating legal) and the SGS tracker — first weekly call done, chasing the lines absent owners left un-updated before Ed's review. Shared: Ed reviews both sides.",
     suggest: null, tags: ['weekly', 'novation', 'arm', 'emea'],

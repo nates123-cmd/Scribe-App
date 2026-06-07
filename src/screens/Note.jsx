@@ -4,10 +4,11 @@ import { Fragment, useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Tag, Person, KIND, Stepper } from '../kit'
-import { NOTES, noteById, projectName, areaName, AREAS } from '../data'
+import { useData } from '../DataContext'
 
 export function NoteScreen() {
   const { route, go } = useScribe()
+  const { notes: NOTES, noteById, projectName, areaName, areas: AREAS } = useData()
   const n = noteById(route.id) || NOTES[0]
   const [railOpen, setRailOpen] = useState(false)
   const [rawOpen, setRawOpen] = useState(false)
