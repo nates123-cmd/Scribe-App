@@ -1,15 +1,13 @@
-// Client for the suite's shared Claude proxy edge function.
+// Client for the suite's shared Claude proxy edge function (JWT-gated `claude`).
+//   POST { messages: [...], system?, model?, max_tokens? }  -> { text, content }
+//   model in {'claude-haiku-4-5','claude-sonnet-4-6','claude-opus-4-8'}; cap 4096.
 //
-// Uses the JWT-gated `claude` function: every suite app authenticates (per-user
-// OTP) so the Supabase session JWT authorizes the call — no client secret.
-//   POST { messages: [...], system?, model?, max_tokens? }  → { text, content }
-//   model ∈ {'claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-8'}; cap 4096.
-//
-// In Scribe these power: meeting-transcript Synthesize, project Briefing,
-// Ask retrieval, and Compose deliverables. The prototype fakes these with
-// setTimeout; wire them here, keeping the same running→done state machine and
-// the "briefings do not auto-run" rule.
-
+// Uses a plain fetch (NOT supabase.functions.invoke). invoke() attaches
+// x-client-info / x-supabase-api-version headers that are NOT in the shared
+// proxy's Access-Control-Allow-Headers, so the browser passes the OPTIONS
+// preflight (200) but then blocks the POST — surfacing as "failed to send a
+// request to the edge function". Sending only authorization/content-type/apikey
+// (all allow-listed) fixes it without changing the shared proxy.
 import { supabase } from './supabase'
 
 const DEFAULT_SYSTEM =
@@ -23,22 +21,33 @@ export async function claudeComplete(prompt, opts = {}) {
     model = 'claude-sonnet-4-6',
   } = opts
 
-  const { data, error } = await supabase.functions.invoke('claude', {
-    body: {
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const { data: { session } } = await supabase.auth.getSession()
+
+  const res = await fetch(url + '/functions/v1/claude', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: anon,
+      Authorization: 'Bearer ' + (session?.access_token || anon),
+    },
+    body: JSON.stringify({
       system: system || DEFAULT_SYSTEM,
       messages: [{ role: 'user', content: prompt }],
       model,
       max_tokens,
-    },
+    }),
   })
-  if (error) throw error
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error('claude proxy ' + res.status + ': ' + detail.slice(0, 200))
+  }
+  const data = await res.json()
   if (typeof data === 'string') return data
   if (data?.text) return data.text
   if (Array.isArray(data?.content)) {
-    return data.content
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text)
-      .join('')
+    return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('')
   }
   return JSON.stringify(data)
 }
