@@ -95,7 +95,7 @@ export function ComposeScreen() {
               onClick={() => artState === 'idle' && saveArtifact()}>{artState === 'saved' ? 'Saved' : artState === 'saving' ? 'Saving…' : 'Save as artifact'}</Btn>
           </div>
         </div>
-        <div style={{ padding: '20px 22px', fontFamily: FONT, fontSize: 14, lineHeight: 1.7, color: t.t1, whiteSpace: 'pre-wrap' }}>{output}</div>
+        <div className="selectable" style={{ padding: '20px 22px', fontFamily: FONT, fontSize: 14, lineHeight: 1.7, color: t.t1, whiteSpace: 'pre-wrap' }}>{output}</div>
         {err && <div style={{ padding: '0 22px 16px', fontFamily: FONT, fontSize: 12.5, color: t.t2 }}>Couldn’t save — {String(err?.message || err)}.</div>}
       </div>}
     </div>

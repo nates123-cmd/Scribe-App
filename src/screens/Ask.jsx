@@ -72,7 +72,7 @@ export function AskScreen() {
       {state === 'answered' && result && <>
         <div style={{ background: t.accentBg, border: '1px solid ' + t.accentLine, borderRadius: 12, padding: '16px 18px', marginBottom: 24 }}>
           <Label style={{ marginBottom: 9 }}>Answer</Label>
-          <div style={{ fontFamily: FONT, fontSize: 15.5, color: t.t1, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{result.answer}</div>
+          <div className="selectable" style={{ fontFamily: FONT, fontSize: 15.5, color: t.t1, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{result.answer}</div>
         </div>
         {result.sources.length > 0 && <>
           <Label style={{ marginBottom: 10 }}>Sources</Label>

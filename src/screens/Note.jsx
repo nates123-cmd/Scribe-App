@@ -87,7 +87,7 @@ export function NoteScreen() {
 
   return <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', height: mobile ? 'auto' : '100%', minHeight: 0 }}>
     <div style={{ flex: 1, minWidth: 0, overflowY: mobile ? 'visible' : 'auto' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: mobile ? '20px 16px 28px' : '30px 40px 70px' }}>
+      <div className="selectable" style={{ maxWidth: 640, margin: '0 auto', padding: mobile ? '20px 16px 28px' : '30px 40px 70px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           <button onClick={() => go(proj ? { screen: 'project', id: n.project } : { screen: 'library' })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 11.5, color: t.t3, background: 'transparent', border: 0, cursor: 'pointer' }}>
