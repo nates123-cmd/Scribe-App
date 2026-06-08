@@ -56,6 +56,7 @@ export function CaptureScreen() {
       id, kind: 'meeting', title: title.trim() || 'Untitled meeting', project: home || null, area: homeArea,
       projects: [], people: result.people || [], tags: result.tags || [], date: today(), updated: 'now',
       indexed: false, status: 1, summary: result.summary || '', terms: result.terms || [],
+      rawWords: String(transcript.trim().split(/\s+/).filter(Boolean).length), transcript: transcript.trim(),
       actions: (result.actions || []).map((a) => ({ text: a.text, src: 'this meeting', owner: a.owner || 'open' })),
       body: [{ p: result.summary || '' }], related: [],
     }

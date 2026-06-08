@@ -9,7 +9,7 @@ function mapNote(r) {
     id: r.id, kind: r.kind, title: r.title, project: r.project, area: r.area,
     projects: r.projects || [], people: r.people || [], tags: r.tags || [],
     date: r.date, updated: r.updated, indexed: r.indexed, status: r.status,
-    rawWords: r.raw_words || undefined, summary: r.summary || undefined,
+    rawWords: r.raw_words || undefined, transcript: r.transcript || undefined, summary: r.summary || undefined,
     terms: r.terms || [], actions: r.actions || [], body: r.body || [], related: r.related || [],
   }
 }
@@ -50,7 +50,7 @@ function noteRow(n) {
     id: n.id, kind: n.kind, title: n.title, project: n.project ?? null, area: n.area ?? null,
     projects: n.projects || [], people: n.people || [], tags: n.tags || [],
     date: n.date, updated: n.updated, indexed: n.indexed ?? true, status: n.status ?? 2,
-    raw_words: n.rawWords ?? null, summary: n.summary ?? null, terms: n.terms || [],
+    raw_words: n.rawWords ?? null, transcript: n.transcript ?? null, summary: n.summary ?? null, terms: n.terms || [],
     actions: n.actions || [], body: n.body || [], related: n.related || [],
   }
 }

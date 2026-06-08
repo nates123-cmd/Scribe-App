@@ -170,14 +170,14 @@ export function NoteScreen() {
             </>
           : <div style={{ fontFamily: FONT, fontSize: 15, color: t.t1, lineHeight: 1.75 }}>{renderBody(n.body || [])}</div>}
 
-        {!editing && isMeeting && <div onClick={() => setRawOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 22,
+        {!editing && isMeeting && (n.transcript || n.rawWords) && <div onClick={() => setRawOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 22,
           padding: '11px 13px', border: '1px solid ' + t.line, borderRadius: 10, background: t.card, cursor: 'pointer' }}>
           <Icon n={rawOpen ? 'chevron-down' : 'chevron-right'} s={14} c={t.t3} />
           <span style={{ fontFamily: FONT, fontSize: 11.5, fontWeight: 600, color: t.t2 }}>Raw transcript</span>
           <span style={{ fontFamily: FONT, fontSize: 10.5, color: t.t3 }}>{n.rawWords} words · source material</span>
         </div>}
-        {!editing && isMeeting && rawOpen && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, lineHeight: 1.7, padding: '14px 13px 0', whiteSpace: 'pre-wrap' }}>
-          {'[00:02] Jon: Let’s start with sequencing… we can’t land pricing tiers until legal closes novation.\n[00:14] You: Agreed — I’ll confirm telemetry scope with Arrowsphere by Thursday.\n[00:31] Haritha: EMEA segmentation is still open on my side…'}</div>}
+        {!editing && isMeeting && rawOpen && (n.transcript || n.rawWords) && <div className="selectable" style={{ fontFamily: FONT, fontSize: 13, color: t.t2, lineHeight: 1.7, padding: '14px 13px 0', whiteSpace: 'pre-wrap' }}>
+          {n.transcript || '[00:02] Jon: Let’s start with sequencing… we can’t land pricing tiers until legal closes novation.\n[00:14] You: Agreed — I’ll confirm telemetry scope with Arrowsphere by Thursday.\n[00:31] Haritha: EMEA segmentation is still open on my side…'}</div>}
       </div>
     </div>
 

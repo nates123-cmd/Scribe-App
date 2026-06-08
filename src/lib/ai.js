@@ -1,15 +1,10 @@
 // Scribe AI surfaces — real Claude calls (via the JWT-gated `claude` proxy)
-// that replace the prototype's setTimeout fakes. Each builds a compact prompt
-// from the user's actual notes and returns structured results.
+// that replace the prototype's setTimeout fakes.
 import { claudeComplete, extractJSON } from './claude'
 
-const noteLine = (n) =>
-  `[${n.id}] ${n.kind}${n.project ? ' · ' + n.project : ''} — ${n.title}` +
-  (n.summary ? ` :: ${n.summary}` : '')
-
-// Ask / retrieval — answer ONLY from the provided notes, cite note ids.
-// Corpus includes people / terms / body so content questions (e.g. "what did
-// X say") actually resolve, not just title + summary.
+// Ask / retrieval — answer ONLY from the provided notes, cite note ids. Corpus
+// includes people / terms / body / transcript so content questions ("what did
+// X say") resolve, not just title + summary.
 const askLine = (n) => {
   const body = (n.body || []).map((b) =>
     b.p || (b.ul ? b.ul.join('; ') : (b.links ? 'see also: ' + b.links.join(', ') : ''))
@@ -17,15 +12,16 @@ const askLine = (n) => {
   const people = (n.people || []).length ? ' | people: ' + n.people.join(', ') : ''
   const terms = (n.terms || []).length ? ' | terms: ' + n.terms.join(', ') : ''
   const tags = (n.tags || []).length ? ' | tags: ' + n.tags.join(', ') : ''
+  const transcript = n.transcript ? '\ntranscript: ' + n.transcript : ''
   return `[${n.id}] (${n.kind}${n.project ? ', ' + n.project : ''}, ${n.date || ''})${people}${terms}${tags}\n` +
-    `${n.title}\n${n.summary || ''}\n${body}`
+    `${n.title}\n${n.summary || ''}\n${body}${transcript}`
 }
 
 export async function askNotes(query, notes) {
   const corpus = notes.map(askLine).join('\n\n---\n\n')
   const system =
     'You are the retrieval engine for a personal notes app called Scribe. ' +
-    'Answer the question using ONLY the provided notes (their people, terms, and body all count as mentions). ' +
+    'Answer the question using ONLY the provided notes (their people, terms, body, and transcript all count). ' +
     'Be concise and specific. Cite the ids of the notes you actually used.'
   const user =
     `Notes:\n${corpus}\n\nQuestion: ${query}\n\n` +
@@ -84,7 +80,7 @@ export async function synthesizeTranscript(transcript) {
 // ── Note Claude-rail actions ───────────────────────────────────────
 const noteContext = (note) => {
   const body = (note.body || []).map((b) => b.p || (b.ul ? b.ul.map((i) => '- ' + i).join('\n') : '')).join('\n')
-  return `Title: ${note.title}\n${note.summary ? 'Summary: ' + note.summary + '\n' : ''}Body:\n${body}`
+  return `Title: ${note.title}\n${note.summary ? 'Summary: ' + note.summary + '\n' : ''}Body:\n${body}${note.transcript ? '\nTranscript:\n' + note.transcript : ''}`
 }
 
 export async function summarizeNote(note) {
