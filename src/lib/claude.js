@@ -18,7 +18,7 @@ export async function claudeComplete(prompt, opts = {}) {
   const {
     system = DEFAULT_SYSTEM,
     max_tokens = 1024,
-    model = 'claude-sonnet-4-6',
+    model = 'claude-haiku-4-5',
   } = opts
 
   const url = import.meta.env.VITE_SUPABASE_URL
