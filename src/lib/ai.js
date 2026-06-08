@@ -8,16 +8,29 @@ const noteLine = (n) =>
   (n.summary ? ` :: ${n.summary}` : '')
 
 // Ask / retrieval — answer ONLY from the provided notes, cite note ids.
+// Corpus includes people / terms / body so content questions (e.g. "what did
+// X say") actually resolve, not just title + summary.
+const askLine = (n) => {
+  const body = (n.body || []).map((b) =>
+    b.p || (b.ul ? b.ul.join('; ') : (b.links ? 'see also: ' + b.links.join(', ') : ''))
+  ).filter(Boolean).join(' ')
+  const people = (n.people || []).length ? ' | people: ' + n.people.join(', ') : ''
+  const terms = (n.terms || []).length ? ' | terms: ' + n.terms.join(', ') : ''
+  const tags = (n.tags || []).length ? ' | tags: ' + n.tags.join(', ') : ''
+  return `[${n.id}] (${n.kind}${n.project ? ', ' + n.project : ''}, ${n.date || ''})${people}${terms}${tags}\n` +
+    `${n.title}\n${n.summary || ''}\n${body}`
+}
+
 export async function askNotes(query, notes) {
-  const corpus = notes.map(noteLine).join('\n')
+  const corpus = notes.map(askLine).join('\n\n---\n\n')
   const system =
     'You are the retrieval engine for a personal notes app called Scribe. ' +
-    'Answer the question using ONLY the provided notes. Be concise and specific. ' +
-    'Cite the ids of the notes you actually used.'
+    'Answer the question using ONLY the provided notes (their people, terms, and body all count as mentions). ' +
+    'Be concise and specific. Cite the ids of the notes you actually used.'
   const user =
     `Notes:\n${corpus}\n\nQuestion: ${query}\n\n` +
     'Return ONLY JSON: {"answer": string, "sources": string[] (note ids, most relevant first, max 4)}'
-  const raw = await claudeComplete(user, { system, max_tokens: 800 })
+  const raw = await claudeComplete(user, { system, max_tokens: 900 })
   const j = extractJSON(raw)
   if (j && j.answer) return { answer: j.answer, sourceIds: (j.sources || []).slice(0, 4) }
   return { answer: raw, sourceIds: [] }
