@@ -7,7 +7,7 @@ import { claudeComplete, extractJSON } from './claude'
 // X say") resolve, not just title + summary.
 const askLine = (n) => {
   const body = (n.body || []).map((b) =>
-    b.p || (b.ul ? b.ul.join('; ') : (b.links ? 'see also: ' + b.links.join(', ') : ''))
+    b.p || (b.ul ? b.ul.join('; ') : (b.ol ? b.ol.join('; ') : (b.links ? 'see also: ' + b.links.join(', ') : '')))
   ).filter(Boolean).join(' ')
   const people = (n.people || []).length ? ' | people: ' + n.people.join(', ') : ''
   const terms = (n.terms || []).length ? ' | terms: ' + n.terms.join(', ') : ''
@@ -79,7 +79,7 @@ export async function synthesizeTranscript(transcript) {
 
 // ── Note Claude-rail actions ───────────────────────────────────────
 const noteContext = (note) => {
-  const body = (note.body || []).map((b) => b.p || (b.ul ? b.ul.map((i) => '- ' + i).join('\n') : '')).join('\n')
+  const body = (note.body || []).map((b) => b.p || (b.ul ? b.ul.map((i) => '- ' + i).join('\n') : (b.ol ? b.ol.map((i, n) => (n + 1) + '. ' + i).join('\n') : ''))).join('\n')
   return `Title: ${note.title}\n${note.summary ? 'Summary: ' + note.summary + '\n' : ''}Body:\n${body}${note.transcript ? '\nTranscript:\n' + note.transcript : ''}`
 }
 

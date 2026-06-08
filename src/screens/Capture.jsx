@@ -7,6 +7,7 @@ import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Btn, Stepper } from '../kit'
 import { synthesizeTranscript } from '../lib/ai'
 import { createNote } from '../lib/db'
+import { textToBlocks } from '../lib/blocks'
 
 const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 const newId = () => (crypto?.randomUUID?.() || 'note-' + Date.now())
@@ -38,7 +39,7 @@ export function CaptureScreen() {
     if (!title.trim() && !noteBody.trim()) return
     setSaving(true); setErr(null)
     const id = newId()
-    const body = noteBody.trim() ? noteBody.trim().split(/\n{2,}/).map((p) => ({ p: p.trim() })) : []
+    const body = noteBody.trim() ? textToBlocks(noteBody.trim()) : []
     const note = {
       id, kind: 'note', title: title.trim() || 'Untitled', project: home || null, area: homeArea,
       projects: [], people: [], tags: [], date: today(), updated: 'now', indexed: false, status: 2,
@@ -91,7 +92,7 @@ export function CaptureScreen() {
     {mode === 'note' && <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled" style={{ width: '100%', border: 0, outline: 0, background: 'transparent',
         fontFamily: FONT, fontSize: 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em', marginBottom: 14 }} />
-      <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} placeholder="Start writing — plain markdown. # headings, **bold**, - lists, [[links]]."
+      <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} placeholder="Start writing — plain markdown. - bullet lists, 1. numbered lists, [[links]]. Blank line between blocks."
         style={{ width: '100%', flex: 1, minHeight: 180, border: 0, outline: 0, background: 'transparent', resize: 'none',
           fontFamily: FONT, fontSize: 15, lineHeight: 1.75, color: t.t1 }} />
       <div style={{ paddingTop: 14, marginTop: 8, borderTop: '1px solid ' + t.line }}>

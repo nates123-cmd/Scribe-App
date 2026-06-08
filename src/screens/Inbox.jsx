@@ -5,23 +5,43 @@ import { useScribe } from '../ScribeCtx'
 import { useData } from '../DataContext'
 import { t, FONT } from '../theme/tokens'
 import { Icon, Label, Tag, Btn } from '../kit'
-import { createNote, deleteInbox } from '../lib/db'
+import { createNote, deleteInbox, updateNote } from '../lib/db'
+import { blocksToText } from '../lib/blocks'
 
 const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export function InboxScreen() {
   const { go, mobile } = useScribe()
-  const { inbox, areas, projectName, areaOfProject, reload } = useData()
+  const { inbox, notes, areas, projectName, areaOfProject, reload } = useData()
   const allProjects = areas.flatMap((a) => a.projects)
   const [hidden, setHidden] = useState([])
   const [picks, setPicks] = useState({})
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
-  const items = inbox.filter((x) => !hidden.includes(x.id))
+
+  // Notes filed under Library (no project, no area, not spanning) are untriaged —
+  // surface them here as triage cards. Filing one assigns a project in place.
+  const orphans = notes
+    .filter((n) => !n.project && !n.area && !(n.projects || []).length)
+    .map((n) => ({
+      id: 'note:' + n.id, noteId: n.id, title: n.title,
+      src: 'Library · no project', srcIcon: 'stack-2',
+      snippet: n.summary || blocksToText(n.body || []).slice(0, 160),
+      suggest: null, suggestMulti: undefined, tags: n.tags || [],
+    }))
+  const items = [...inbox, ...orphans].filter((x) => !hidden.includes(x.id))
   const dismiss = (id) => setHidden((h) => [...h, id])
 
   const accept = async (c, overrideProject) => {
     setBusy(c.id); setErr(null)
+    // Note-backed entry (a Library note): file it by assigning a project, no new row.
+    if (c.noteId) {
+      const projectId = overrideProject || null
+      const areaId = projectId ? (areaOfProject(projectId) || {}).id || null : null
+      try { await updateNote(c.noteId, { project: projectId, area: areaId }); await reload() }
+      catch (e) { setErr(e); setBusy(null) }
+      return
+    }
     const m = c.suggestMulti
     const projectId = overrideProject || (m ? null : (c.suggest?.project || null))
     const areaId = m ? m.home : (projectId ? (areaOfProject(projectId) || {}).id : null) || null
@@ -42,7 +62,7 @@ export function InboxScreen() {
         <h1 style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em', margin: 0 }}>Inbox</h1>
         <span style={{ fontFamily: FONT, fontSize: 13, color: t.t3 }}>{items.length} to triage</span>
       </div>
-      {items.length > 0 && <Btn kind="outline" icon="sparkles" onClick={() => setHidden(inbox.map((x) => x.id))}>Triage all</Btn>}
+      {items.length > 0 && <Btn kind="outline" icon="sparkles" onClick={() => setHidden((h) => [...h, ...items.map((x) => x.id)])}>Triage all</Btn>}
     </div>
 
     {err && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, marginBottom: 14 }}>Couldn’t file it — {String(err?.message || err)}.</div>}
@@ -61,7 +81,8 @@ export function InboxScreen() {
       return <div key={c.id} style={{ background: t.card, border: '1px solid ' + t.line, borderRadius: 12,
         padding: '16px 18px', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
-          <span style={{ fontFamily: FONT, fontSize: 15.5, fontWeight: 600, color: t.t1 }}>{c.title}</span>
+          <span onClick={c.noteId ? () => go({ screen: 'note', id: c.noteId }) : undefined}
+            style={{ fontFamily: FONT, fontSize: 15.5, fontWeight: 600, color: t.t1, cursor: c.noteId ? 'pointer' : 'default' }}>{c.title}</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11, color: t.t3, whiteSpace: 'nowrap' }}>
             <Icon n={c.srcIcon} s={13} />{c.src}</span>
         </div>
@@ -69,7 +90,7 @@ export function InboxScreen() {
 
         <div style={{ background: t.accentBg, border: '1px solid ' + t.accentLine, borderRadius: 9, padding: '10px 13px', marginBottom: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <Icon n="sparkles" s={12} c={t.t1} /><Label>{m ? 'Triage suggestion · spans projects' : 'Triage suggestion'}</Label>
+            <Icon n={c.noteId ? 'stack-2' : 'sparkles'} s={12} c={t.t1} /><Label>{c.noteId ? 'Unfiled · in Library' : m ? 'Triage suggestion · spans projects' : 'Triage suggestion'}</Label>
           </div>
           {m
             ? <div style={{ fontFamily: FONT, fontSize: 12.5, color: t.t2 }}>
@@ -93,8 +114,8 @@ export function InboxScreen() {
                 <span style={{ color: t.t3 }}>·</span>{c.tags.map((tg) => <Tag key={tg}>{tg}</Tag>)}
               </div>
             : <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: FONT, fontSize: 12.5, color: t.t2 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: t.t3 }}><Icon n="folder-off" s={14} />no confident project — pick one</span>
-                <span style={{ color: t.t3 }}>·</span>{c.tags.map((tg) => <Tag key={tg}>{tg}</Tag>)}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: t.t3 }}><Icon n="folder-off" s={14} />{c.noteId ? 'no project — file it into one' : 'no confident project — pick one'}</span>
+                {c.tags.length > 0 && <><span style={{ color: t.t3 }}>·</span>{c.tags.map((tg) => <Tag key={tg}>{tg}</Tag>)}</>}
               </div>}
         </div>
 
@@ -116,8 +137,8 @@ export function InboxScreen() {
                   <option value="">Pick project…</option>
                   {allProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                <Btn kind="primary" size="sm" icon={loading ? 'loader-2' : undefined} onClick={() => picks[c.id] && accept(c, picks[c.id])}>File as note</Btn>
-                <Btn kind="ghost" size="sm" onClick={() => dismiss(c.id)}>Keep in inbox</Btn></>}
+                <Btn kind="primary" size="sm" icon={loading ? 'loader-2' : undefined} onClick={() => picks[c.id] && accept(c, picks[c.id])}>{c.noteId ? 'File into project' : 'File as note'}</Btn>
+                <Btn kind="ghost" size="sm" onClick={() => dismiss(c.id)}>{c.noteId ? 'Keep in Library' : 'Keep in inbox'}</Btn></>}
         </div>
       </div>
     })}

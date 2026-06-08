@@ -71,6 +71,7 @@ export function NoteScreen() {
   const renderBody = (blocks) => blocks.map((b, i) => {
     if (b.p) return <p key={i} style={{ margin: '0 0 15px' }}>{b.p}</p>
     if (b.ul) return <ul key={i} style={{ margin: '0 0 15px', paddingLeft: 20 }}>{b.ul.map((li, j) => <li key={j} style={{ marginBottom: 6 }}>{li}</li>)}</ul>
+    if (b.ol) return <ol key={i} style={{ margin: '0 0 15px', paddingLeft: 22 }}>{b.ol.map((li, j) => <li key={j} style={{ marginBottom: 6 }}>{li}</li>)}</ol>
     if (b.links) return <p key={i} style={{ margin: 0 }}>See also {b.links.map((l, j) => <Fragment key={j}>
       <span onClick={() => { const m = NOTES.find((x) => x.title === l); if (m) go({ screen: 'note', id: m.id }) }}
         style={{ color: t.t1, textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: t.accentLine, cursor: 'pointer' }}>[[{l}]]</span>
@@ -163,7 +164,7 @@ export function NoteScreen() {
         <Label style={{ marginBottom: 10 }}>Notes</Label>
         {editing
           ? <>
-              <textarea value={eBody} onChange={(e) => setEBody(e.target.value)} placeholder="Write in markdown — paragraphs, - bullet lists, [[note links]]."
+              <textarea value={eBody} onChange={(e) => setEBody(e.target.value)} placeholder="Write in markdown — paragraphs, - bullet lists, 1. numbered lists, [[note links]]. Blank line between blocks."
                 style={{ width: '100%', minHeight: 320, border: '1px solid ' + t.line2, borderRadius: 10, padding: '14px 16px', outline: 0,
                   background: t.card, resize: 'vertical', fontFamily: FONT, fontSize: 15, lineHeight: 1.75, color: t.t1 }} />
               {err && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, marginTop: 10 }}>Couldn’t save — {String(err?.message || err)}.</div>}
