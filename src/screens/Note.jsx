@@ -1,7 +1,5 @@
-// Note editor — reading column + Related panel + Claude rail (live actions).
-// Title/body/tags editable; Claude rail runs Summarize / Extract / Suggest tags
-// / Rewrite and writes back to Supabase. Not block-based: body is one markdown
-// document.
+// Note editor — reading column + Related + Claude rail (live). Stacks to one
+// column on mobile. Title/body/tags editable; rail actions write back.
 import { Fragment, useState } from 'react'
 import { useScribe } from '../ScribeCtx'
 import { useData } from '../DataContext'
@@ -12,7 +10,7 @@ import { blocksToText, textToBlocks } from '../lib/blocks'
 import { summarizeNote, extractActions, suggestTags, rewriteNote } from '../lib/ai'
 
 export function NoteScreen() {
-  const { route, go } = useScribe()
+  const { route, go, mobile } = useScribe()
   const { notes: NOTES, noteById, projectName, areaName, areas: AREAS, reload } = useData()
   const n = noteById(route.id) || NOTES[0]
   const [railOpen, setRailOpen] = useState(false)
@@ -43,7 +41,6 @@ export function NoteScreen() {
     catch (e) { setErr(e); setSaving(false) }
   }
 
-  // Claude rail actions — run, write back, reload.
   const runRail = async (label) => {
     if (label === 'Compose deliverable') return go({ screen: 'compose', noteId: n.id })
     setRailBusy(label); setRailMsg(null)
@@ -82,11 +79,16 @@ export function NoteScreen() {
   })
 
   const hasActions = (n.actions || []).length > 0
+  const sideStyle = (bg) => ({
+    width: mobile ? '100%' : (bg === t.card ? 232 : 252), flex: 'none',
+    borderLeft: mobile ? 'none' : '1px solid ' + t.line, borderTop: mobile ? '1px solid ' + t.line : 'none',
+    background: bg, padding: '24px 16px', overflowY: mobile ? 'visible' : 'auto',
+  })
 
-  return <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
-    <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '30px 40px 70px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+  return <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', height: mobile ? 'auto' : '100%', minHeight: 0 }}>
+    <div style={{ flex: 1, minWidth: 0, overflowY: mobile ? 'visible' : 'auto' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: mobile ? '20px 16px 28px' : '30px 40px 70px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           <button onClick={() => go(proj ? { screen: 'project', id: n.project } : { screen: 'library' })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 11.5, color: t.t3, background: 'transparent', border: 0, cursor: 'pointer' }}>
             <Icon n="chevron-left" s={13} />{['Work', area, proj].filter(Boolean).join(' · ') || 'Library'}</button>
@@ -107,8 +109,8 @@ export function NoteScreen() {
 
         {editing
           ? <input value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="Untitled"
-              style={{ width: '100%', border: 0, outline: 0, background: 'transparent', fontFamily: FONT, fontSize: 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.025em', lineHeight: 1.12 }} />
-          : <h1 style={{ fontFamily: FONT, fontSize: 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.025em', lineHeight: 1.12, margin: 0 }}>{n.title}</h1>}
+              style={{ width: '100%', border: 0, outline: 0, background: 'transparent', fontFamily: FONT, fontSize: mobile ? 26 : 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.025em', lineHeight: 1.12 }} />
+          : <h1 style={{ fontFamily: FONT, fontSize: mobile ? 26 : 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.025em', lineHeight: 1.12, margin: 0 }}>{n.title}</h1>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '14px 0 0' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11.5, color: t.t2 }}>
@@ -179,7 +181,8 @@ export function NoteScreen() {
       </div>
     </div>
 
-    <div style={{ width: 252, flex: 'none', borderLeft: '1px solid ' + t.line, background: t.panel, padding: '24px 16px', overflowY: 'auto' }}>
+    {/* Related panel */}
+    <div style={sideStyle(t.panel)}>
       <Label style={{ marginBottom: 8 }}>Related · derived</Label>
       {(n.related || []).length === 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: t.t3 }}>No neighbors yet.</div>}
       {(n.related || []).map(relatedRow)}
@@ -191,8 +194,8 @@ export function NoteScreen() {
         </div>
       </div>}
     </div>
-
-    {railOpen && <div style={{ width: 232, flex: 'none', borderLeft: '1px solid ' + t.line, background: t.card, padding: '24px 16px' }}>
+    {/* Claude rail — stacks below on mobile */}
+    {railOpen && <div style={sideStyle(t.card)}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Icon n="sparkles" s={14} c={t.t1} /><Label>Claude</Label></span>
         <Icon n="x" s={15} c={t.t3} style={{ cursor: 'pointer' }} onClick={() => setRailOpen(false)} />
@@ -206,5 +209,7 @@ export function NoteScreen() {
           <Icon n={busy ? 'loader-2' : ic} s={15} c={t.t1} />{lb}</div>
       })}
     </div>}
+
+
   </div>
 }

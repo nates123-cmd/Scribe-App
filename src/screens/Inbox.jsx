@@ -10,7 +10,7 @@ import { createNote, deleteInbox } from '../lib/db'
 const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export function InboxScreen() {
-  const { go } = useScribe()
+  const { go, mobile } = useScribe()
   const { inbox, areas, projectName, areaOfProject, reload } = useData()
   const allProjects = areas.flatMap((a) => a.projects)
   const [hidden, setHidden] = useState([])
@@ -36,7 +36,7 @@ export function InboxScreen() {
     catch (e) { setErr(e); setBusy(null) }
   }
 
-  return <div style={{ padding: '28px 40px 60px', maxWidth: 820, margin: '0 auto' }}>
+  return <div style={{ padding: mobile ? '20px 16px 90px' : '28px 40px 60px', maxWidth: 820, margin: '0 auto' }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
         <h1 style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em', margin: 0 }}>Inbox</h1>

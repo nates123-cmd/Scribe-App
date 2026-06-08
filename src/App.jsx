@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ScribeCtx } from './ScribeCtx'
+import { ScribeCtx, useIsMobile } from './ScribeCtx'
 import { useData } from './DataContext'
 import { t, FONT } from './theme/tokens'
 import { Icon } from './kit'
@@ -13,10 +13,10 @@ import { ProjectScreen } from './screens/Project'
 import { AskScreen } from './screens/Ask'
 import { ComposeScreen } from './screens/Compose'
 
-// ── Sidebar ───────────────────────────────────────────────────────
+// ── Sidebar (desktop column + mobile drawer body) ─────────────────
 function Sidebar({ route, go }) {
   const { areas, inbox } = useData()
-  const [openOverride, setOpenOverride] = useState({}) // id -> bool, overrides area.open
+  const [openOverride, setOpenOverride] = useState({})
   const isOpen = (a) => openOverride[a.id] ?? a.open
   const toggle = (id) => setOpenOverride((o) => ({ ...o, [id]: !(o[id] ?? (areas.find((a) => a.id === id) || {}).open) }))
   const inboxCount = inbox.length
@@ -34,7 +34,7 @@ function Sidebar({ route, go }) {
     </div>
   }
 
-  return <div style={{ width: 232, flex: 'none', borderRight: '1px solid ' + t.line, background: t.panel, display: 'flex', flexDirection: 'column', padding: '18px 12px' }}>
+  return <div style={{ width: 232, flex: 'none', borderRight: '1px solid ' + t.line, background: t.panel, display: 'flex', flexDirection: 'column', padding: '18px 12px', height: '100%' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 18px' }}>
       <span style={{ fontFamily: FONT, fontSize: 21, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em' }}>scribe</span>
     </div>
@@ -72,7 +72,7 @@ function Sidebar({ route, go }) {
   </div>
 }
 
-// ── Top Ask bar ───────────────────────────────────────────────────
+// ── Desktop top Ask bar ───────────────────────────────────────────
 function TopBar({ go, theme, setTheme }) {
   const [q, setQ] = useState('')
   return <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 24px', borderBottom: '1px solid ' + t.line, background: t.bg }}>
@@ -93,6 +93,37 @@ function TopBar({ go, theme, setTheme }) {
       style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: FONT, fontSize: 13, fontWeight: 600, color: t.onAccent,
         background: t.accent, border: 0, borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>
       <Icon n="plus" s={15} />New</button>
+  </div>
+}
+
+// ── Mobile header + bottom tab bar ────────────────────────────────
+function MobileHeader({ go, theme, setTheme, onMenu }) {
+  return <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid ' + t.line, background: t.bg }}>
+    <button onClick={onMenu} style={{ display: 'flex', alignItems: 'center', background: 'transparent', border: 0, color: t.t1, cursor: 'pointer', padding: 4 }}>
+      <Icon n="menu-2" s={22} /></button>
+    <span style={{ fontFamily: FONT, fontSize: 19, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em' }}>scribe</span>
+    <div style={{ flex: 1 }} />
+    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} style={{ display: 'flex', background: 'transparent', border: 0, color: t.t2, cursor: 'pointer', padding: 6 }}>
+      <Icon n={theme === 'dark' ? 'moon' : 'sun'} s={19} /></button>
+    <button onClick={() => go({ screen: 'capture' })} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, background: t.accent, color: t.onAccent, border: 0, borderRadius: 9, cursor: 'pointer' }}>
+      <Icon n="plus" s={18} /></button>
+  </div>
+}
+
+function BottomTabs({ route, go }) {
+  const { inbox } = useData()
+  const tabs = [['library', 'stack-2', 'Library'], ['inbox', 'inbox', 'Inbox'], ['ask', 'sparkles', 'Ask']]
+  return <div style={{ display: 'flex', borderTop: '1px solid ' + t.line, background: t.panel, height: 56, flex: 'none' }}>
+    {tabs.map(([screen, icon, label]) => {
+      const active = route.screen === screen
+      return <button key={screen} onClick={() => go({ screen })}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+          background: 'transparent', border: 0, cursor: 'pointer', color: active ? t.t1 : t.t3, position: 'relative' }}>
+        <Icon n={icon} s={20} c={active ? t.t1 : t.t3} />
+        <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600 }}>{label}</span>
+        {screen === 'inbox' && inbox.length > 0 && <span style={{ position: 'absolute', top: 6, right: '50%', marginRight: -18, fontFamily: FONT, fontSize: 9, fontWeight: 700, color: t.onAccent, background: t.accent, borderRadius: 8, padding: '0 5px' }}>{inbox.length}</span>}
+      </button>
+    })}
   </div>
 }
 
@@ -117,19 +148,20 @@ function FullScreenMsg({ children, spin }) {
 
 export default function App() {
   const { status, error, reload } = useData()
+  const mobile = useIsMobile()
+  const [drawer, setDrawer] = useState(false)
   const [theme, setThemeRaw] = useState(() => localStorage.getItem('scribe-theme') || 'light')
   const [route, setRoute] = useState(() => {
     try { return JSON.parse(localStorage.getItem('scribe-route')) || { screen: 'library' } } catch { return { screen: 'library' } }
   })
 
   const setTheme = (v) => { setThemeRaw(v); localStorage.setItem('scribe-theme', v) }
-  const go = (r) => { setRoute(r); localStorage.setItem('scribe-route', JSON.stringify(r))
+  const go = (r) => { setRoute(r); localStorage.setItem('scribe-route', JSON.stringify(r)); setDrawer(false)
     const scroller = document.getElementById('scribe-scroll'); if (scroller) scroller.scrollTop = 0 }
 
-  // Theme drives a [data-theme] attribute on <html>; CSS variables do the rest.
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme) }, [theme])
 
-  const ctx = useMemo(() => ({ t, theme, setTheme, route, go }), [theme, route])
+  const ctx = useMemo(() => ({ t, theme, setTheme, route, go, mobile }), [theme, route, mobile])
   const isNote = route.screen === 'note'
 
   if (status === 'loading') return <FullScreenMsg spin>Loading your notes…</FullScreenMsg>
@@ -138,6 +170,24 @@ export default function App() {
     <span onClick={reload} style={{ color: t.t1, textDecoration: 'underline', cursor: 'pointer' }}>retry</span>
   </FullScreenMsg>
 
+  // ── Mobile shell ──
+  if (mobile) {
+    return <ScribeCtx.Provider value={ctx}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: t.bg, color: t.t1, fontFamily: FONT }}>
+        <MobileHeader go={go} theme={theme} setTheme={setTheme} onMenu={() => setDrawer(true)} />
+        <div id="scribe-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><Screen route={route} /></div>
+        <BottomTabs route={route} go={go} />
+      </div>
+      {drawer && <div onClick={() => setDrawer(false)}
+        style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.35)', display: 'flex' }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: 264, maxWidth: '82%', height: '100%', boxShadow: t.shadow }}>
+          <Sidebar route={route} go={go} />
+        </div>
+      </div>}
+    </ScribeCtx.Provider>
+  }
+
+  // ── Desktop shell ──
   return <ScribeCtx.Provider value={ctx}>
     <div style={{ display: 'flex', height: '100vh', background: t.bg, color: t.t1, fontFamily: FONT }}>
       <Sidebar route={route} go={go} />

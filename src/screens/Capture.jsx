@@ -12,7 +12,7 @@ const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day
 const newId = () => (crypto?.randomUUID?.() || 'note-' + Date.now())
 
 export function CaptureScreen() {
-  const { go } = useScribe()
+  const { go, mobile } = useScribe()
   const { areas, areaOfProject, reload } = useData()
   const allProjects = areas.flatMap((a) => a.projects)
   const [mode, setMode] = useState('note') // note | meeting
@@ -71,7 +71,7 @@ export function CaptureScreen() {
       color: on ? t.t1 : t.t2 }}><Icon n={icon} s={15} c={on ? t.t1 : t.t2} />{label}</button>
   }
 
-  return <div style={{ padding: '28px 40px 60px', maxWidth: 740, margin: '0 auto' }}>
+  return <div style={{ padding: mobile ? '20px 16px 90px' : '28px 40px 60px', maxWidth: 740, margin: '0 auto' }}>
     <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>{tab('note', 'New note', 'pencil')}{tab('meeting', 'Meeting transcript', 'users')}</div>
 
     {/* home picker */}

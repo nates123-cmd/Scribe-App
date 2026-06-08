@@ -8,7 +8,7 @@ import { Icon, Label, Btn, StatusPill, KIND } from '../kit'
 import { briefingFor } from '../lib/ai'
 
 export function ProjectScreen() {
-  const { route, go } = useScribe()
+  const { route, go, mobile } = useScribe()
   const { projectName, areaOfProject, areaName, ownedNotes, linkedMeetings, actionsForProject } = useData()
   const pid = route.id || 'csp'
   const pname = projectName(pid) || 'Project'
@@ -41,7 +41,7 @@ export function ProjectScreen() {
 
   return <div>
     {/* scoped Ask bar */}
-    <div style={{ padding: '20px 40px 0', maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ padding: mobile ? '16px 16px 0' : '20px 40px 0', maxWidth: 760, margin: '0 auto' }}>
       <form onSubmit={(e) => { e.preventDefault(); go({ screen: 'ask', query: askQ, scope: pname }) }}
         style={{ display: 'flex', alignItems: 'center', gap: 9, background: t.card, border: '1px solid ' + t.accentLine,
           borderRadius: 10, padding: '0 13px', height: 40 }}>
@@ -52,7 +52,7 @@ export function ProjectScreen() {
       </form>
     </div>
 
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '22px 40px 70px' }}>
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: mobile ? '16px 16px 90px' : '22px 40px 70px' }}>
       <div style={{ fontFamily: FONT, fontSize: 11.5, color: t.t3, marginBottom: 3 }}>Work · {area ? area.name : ''}</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -112,7 +112,7 @@ export function ProjectScreen() {
       {/* notes & knowledge */}
       {refs.length > 0 && <>
         {sectionLabel('Notes & knowledge')}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 26 }}>{refs.map((r) =>
+        <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 26 }}>{refs.map((r) =>
           <div key={r.id} onClick={() => go({ screen: 'note', id: r.id })}
             style={{ border: '1px solid ' + t.line, borderRadius: 11, padding: '13px 15px', cursor: 'pointer', background: t.card }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = t.accent)} onMouseLeave={(e) => (e.currentTarget.style.borderColor = t.line)}>

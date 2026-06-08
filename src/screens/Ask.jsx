@@ -7,7 +7,7 @@ import { Icon, Label, KIND } from '../kit'
 import { askNotes } from '../lib/ai'
 
 export function AskScreen() {
-  const { route, go } = useScribe()
+  const { route, go, mobile } = useScribe()
   const { notes, noteById, projectName } = useData()
   const [q, setQ] = useState(route.query || '')
   const [state, setState] = useState(route.query ? 'running' : 'empty') // empty | running | answered | error
@@ -42,7 +42,7 @@ export function AskScreen() {
     : []
 
   return <div>
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 40px 70px' }}>
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: mobile ? '28px 16px 90px' : '40px 40px 70px' }}>
       <form onSubmit={onSubmit} style={{ display: 'flex', alignItems: 'center', gap: 10, background: t.card,
         border: '1px solid ' + t.accentLine, borderRadius: 12, padding: '0 15px', height: 50, marginBottom: 10 }}>
         <Icon n="sparkles" s={18} c={t.t1} />

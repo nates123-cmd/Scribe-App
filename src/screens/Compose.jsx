@@ -14,7 +14,7 @@ const today = () => new Date().toLocaleDateString('en-US', { month: 'short', day
 const newId = () => (crypto?.randomUUID?.() || 'note-' + Date.now())
 
 export function ComposeScreen() {
-  const { route, go } = useScribe()
+  const { route, go, mobile } = useScribe()
   const { noteById, projectName, ownedNotes, areaOfProject, reload } = useData()
   const srcNote = route.noteId && noteById(route.noteId)
   const srcProj = route.projectId && projectName(route.projectId)
@@ -53,7 +53,7 @@ export function ComposeScreen() {
   }
 
   return <div>
-    <div style={{ maxWidth: 740, margin: '0 auto', padding: '30px 40px 70px' }}>
+    <div style={{ maxWidth: 740, margin: '0 auto', padding: mobile ? '20px 16px 90px' : '30px 40px 70px' }}>
       <button onClick={() => go(srcNote ? { screen: 'note', id: srcNote.id } : { screen: 'project', id: route.projectId || 'csp' })}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 11.5, color: t.t3, background: 'transparent', border: 0, cursor: 'pointer', marginBottom: 14 }}>
         <Icon n="chevron-left" s={13} />Back</button>
@@ -64,7 +64,7 @@ export function ComposeScreen() {
         from <span style={{ color: t.t1, fontWeight: 600 }}>{srcLabel}</span> · output is clean content to paste into Word / PowerPoint / Excel</div>
 
       <Label style={{ marginBottom: 9 }}>Deliverable type</Label>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 22 }}>
         {COMPOSE_TYPES.map((c) => { const on = type === c.id
           return <div key={c.id} onClick={() => { setType(c.id); setState('idle'); setArtState('idle') }}
             style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px', borderRadius: 11, cursor: 'pointer',
