@@ -71,7 +71,8 @@ export function CaptureScreen() {
       color: on ? t.t1 : t.t2 }}><Icon n={icon} s={15} c={on ? t.t1 : t.t2} />{label}</button>
   }
 
-  return <div style={{ padding: mobile ? '20px 16px 90px' : '28px 40px 60px', maxWidth: 740, margin: '0 auto' }}>
+  return <div style={{ padding: mobile ? '20px 16px 28px' : '28px 40px 36px', maxWidth: 740, margin: '0 auto',
+    minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
     <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>{tab('note', 'New note', 'pencil')}{tab('meeting', 'Meeting transcript', 'users')}</div>
 
     {/* home picker */}
@@ -86,18 +87,18 @@ export function CaptureScreen() {
 
     {err && <div style={{ fontFamily: FONT, fontSize: 13, color: t.t2, marginBottom: 14 }}>Couldn’t save — {String(err?.message || err)}.</div>}
 
-    {mode === 'note' && <>
+    {mode === 'note' && <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled" style={{ width: '100%', border: 0, outline: 0, background: 'transparent',
         fontFamily: FONT, fontSize: 30, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em', marginBottom: 14 }} />
       <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} placeholder="Start writing — plain markdown. # headings, **bold**, - lists, [[links]]."
-        style={{ width: '100%', minHeight: 300, border: 0, outline: 0, background: 'transparent', resize: 'none',
+        style={{ width: '100%', flex: 1, minHeight: 180, border: 0, outline: 0, background: 'transparent', resize: 'none',
           fontFamily: FONT, fontSize: 15, lineHeight: 1.75, color: t.t1 }} />
-      <div style={{ marginTop: 8 }}>
+      <div style={{ paddingTop: 14, marginTop: 8, borderTop: '1px solid ' + t.line }}>
         <Btn kind="primary" icon={saving ? 'loader-2' : 'circle-check'} onClick={saveNote}>{saving ? 'Saving…' : 'Save note'}</Btn>
       </div>
-    </>}
+    </div>}
 
-    {mode === 'meeting' && <>
+    {mode === 'meeting' && <div>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Meeting title" style={{ width: '100%', border: 0, outline: 0, background: 'transparent',
         fontFamily: FONT, fontSize: 26, fontWeight: 700, color: t.t1, letterSpacing: '-0.02em', marginBottom: 14 }} />
       <Label style={{ marginBottom: 8 }}>Paste transcript</Label>
@@ -130,6 +131,6 @@ export function CaptureScreen() {
           </div>
         </div>
       </div>}
-    </>}
+    </div>}
   </div>
 }
