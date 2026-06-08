@@ -32,8 +32,8 @@ export async function loadAll() {
   const [areas, projects, notes, inbox] = await Promise.all([
     supabase.from('scribe_areas').select('*'),
     supabase.from('scribe_projects').select('*'),
-    supabase.from('scribe_notes').select('*'),
-    supabase.from('scribe_inbox').select('*'),
+    supabase.from('scribe_notes').select('*').order('updated_at', { ascending: false }),
+    supabase.from('scribe_inbox').select('*').order('created_at', { ascending: false }),
   ])
   const err = areas.error || projects.error || notes.error || inbox.error
   if (err) throw err
