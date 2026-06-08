@@ -128,6 +128,29 @@ export async function createArea(name, sort = 0) {
   return id
 }
 
+// Rename / toggle-default an area. patch keys: name, open (-> open_default).
+export async function updateArea(id, patch) {
+  const row = {}
+  if (patch.name != null) row.name = patch.name
+  if (patch.open != null) row.open_default = patch.open
+  const { error } = await supabase.from('scribe_areas').update(row).eq('id', id)
+  if (error) throw error
+}
+
+// Delete an area. Projects inside it (FK) must be empty / handled by caller.
+export async function deleteArea(id) {
+  const { error } = await supabase.from('scribe_areas').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Persist a new area ordering. orderedIds = area ids in display order.
+export async function reorderAreas(orderedIds) {
+  const results = await Promise.all(orderedIds.map((id, sort) =>
+    supabase.from('scribe_areas').update({ sort }).eq('id', id)))
+  const err = results.find((r) => r.error)
+  if (err) throw err.error
+}
+
 // Create a project inside an area.
 export async function createProject(areaId, name, sort = 0) {
   const id = (crypto?.randomUUID?.() || 'proj-' + Date.now())

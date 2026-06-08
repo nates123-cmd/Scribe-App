@@ -4,7 +4,7 @@ import { useData } from './DataContext'
 import { t, FONT } from './theme/tokens'
 import { Icon } from './kit'
 import { TOPICS } from './data'
-import { createArea, createProject } from './lib/db'
+import { createArea, createProject, updateArea, deleteArea, reorderAreas } from './lib/db'
 
 import { LibraryScreen } from './screens/Library'
 import { InboxScreen } from './screens/Inbox'
@@ -16,16 +16,46 @@ import { ComposeScreen } from './screens/Compose'
 
 // ── Sidebar (desktop column + mobile drawer body) ─────────────────
 function Sidebar({ route, go }) {
-  const { areas, inbox } = useData()
+  const { areas, inbox, reload } = useData()
   const [openOverride, setOpenOverride] = useState({})
+  const [orderIds, setOrderIds] = useState(null) // local drag order until reload re-sorts
+  const [dragId, setDragId] = useState(null)
+  const [overId, setOverId] = useState(null)
   const isOpen = (a) => openOverride[a.id] ?? a.open
   const toggle = (id) => setOpenOverride((o) => ({ ...o, [id]: !(o[id] ?? (areas.find((a) => a.id === id) || {}).open) }))
   const inboxCount = inbox.length
+
+  // Displayed area order: local drag override (if any) else server order.
+  const ordered = orderIds
+    ? [...orderIds.map((id) => areas.find((a) => a.id === id)).filter(Boolean),
+       ...areas.filter((a) => !orderIds.includes(a.id))]
+    : areas
 
   const addArea = async () => {
     const name = (window.prompt('New area name') || '').trim()
     if (!name) return
     try { await createArea(name, areas.length); await reload() } catch (e) { window.alert('Could not add area: ' + (e?.message || e)) }
+  }
+  const renameArea = async (a) => {
+    const name = (window.prompt('Rename area', a.name) || '').trim()
+    if (!name || name === a.name) return
+    try { await updateArea(a.id, { name }); await reload() } catch (e) { window.alert('Could not rename area: ' + (e?.message || e)) }
+  }
+  const removeArea = async (a) => {
+    if (a.projects.length) { window.alert('Move or delete its ' + a.projects.length + ' project(s) first.'); return }
+    if (!window.confirm('Delete area “' + a.name + '”?')) return
+    try { await deleteArea(a.id); await reload() } catch (e) { window.alert('Could not delete area: ' + (e?.message || e)) }
+  }
+  const dropOn = async (targetId) => {
+    const src = dragId; setDragId(null); setOverId(null)
+    if (!src || src === targetId) return
+    const ids = ordered.map((a) => a.id)
+    const from = ids.indexOf(src); const to = ids.indexOf(targetId)
+    if (from < 0 || to < 0) return
+    ids.splice(to, 0, ids.splice(from, 1)[0])
+    setOrderIds(ids)
+    try { await reorderAreas(ids); await reload(); setOrderIds(null) }
+    catch (e) { window.alert('Could not reorder: ' + (e?.message || e)); setOrderIds(null) }
   }
   const addProject = async (a) => {
     const name = (window.prompt('New project in ' + a.name) || '').trim()
@@ -59,11 +89,23 @@ function Sidebar({ route, go }) {
       <span title="Add area" onClick={addArea} style={{ display: 'inline-flex', color: t.t3, cursor: 'pointer' }}><Icon n="plus" s={13} /></span>
     </div>
     <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
-      {areas.map((a) => <div key={a.id}>
+      {ordered.map((a) => <div key={a.id}
+        draggable onDragStart={() => setDragId(a.id)} onDragEnd={() => { setDragId(null); setOverId(null) }}
+        onDragOver={(e) => { e.preventDefault(); if (overId !== a.id) setOverId(a.id) }}
+        onDrop={(e) => { e.preventDefault(); dropOn(a.id) }}
+        style={{ opacity: dragId === a.id ? 0.4 : 1, borderTop: '2px solid ' + (overId === a.id && dragId && dragId !== a.id ? t.accent : 'transparent') }}>
         <div onClick={() => toggle(a.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: t.t2, cursor: 'pointer', padding: '6px 10px', borderRadius: 7 }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = t.sel)} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><Icon n={isOpen(a) ? 'chevron-down' : 'chevron-right'} s={13} c={t.t3} />{a.name}</span>
-          <span title="Add project" onClick={(e) => { e.stopPropagation(); addProject(a) }} style={{ display: 'inline-flex', color: t.t3, padding: 2 }}><Icon n="plus" s={12} /></span></div>
+          onMouseEnter={(e) => { e.currentTarget.style.background = t.sel; const g = e.currentTarget.querySelector('[data-area-actions]'); if (g) g.style.opacity = 1 }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; const g = e.currentTarget.querySelector('[data-area-actions]'); if (g) g.style.opacity = 0 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <Icon n="grip-vertical" s={12} c={t.t3} style={{ cursor: 'grab', flex: 'none' }} />
+            <Icon n={isOpen(a) ? 'chevron-down' : 'chevron-right'} s={13} c={t.t3} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span></span>
+          <span data-area-actions style={{ display: 'inline-flex', alignItems: 'center', gap: 2, opacity: 0, transition: 'opacity .12s', flex: 'none' }}>
+            <span title="Rename area" onClick={(e) => { e.stopPropagation(); renameArea(a) }} style={{ display: 'inline-flex', color: t.t3, padding: 2 }}><Icon n="pencil" s={12} /></span>
+            <span title="Delete area" onClick={(e) => { e.stopPropagation(); removeArea(a) }} style={{ display: 'inline-flex', color: t.t3, padding: 2 }}><Icon n="trash" s={12} /></span>
+            <span title="Add project" onClick={(e) => { e.stopPropagation(); addProject(a) }} style={{ display: 'inline-flex', color: t.t3, padding: 2 }}><Icon n="plus" s={12} /></span>
+          </span></div>
         {isOpen(a) && a.projects.map((p) => { const active = route.screen === 'project' && route.id === p.id
           return <div key={p.id} onClick={() => go({ screen: 'project', id: p.id })}
             style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT, fontSize: 12.5, fontWeight: active ? 600 : 500,
