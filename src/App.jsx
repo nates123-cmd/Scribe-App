@@ -4,6 +4,7 @@ import { useData } from './DataContext'
 import { t, FONT } from './theme/tokens'
 import { Icon } from './kit'
 import { TOPICS } from './data'
+import { createArea, createProject } from './lib/db'
 
 import { LibraryScreen } from './screens/Library'
 import { InboxScreen } from './screens/Inbox'
@@ -20,6 +21,17 @@ function Sidebar({ route, go }) {
   const isOpen = (a) => openOverride[a.id] ?? a.open
   const toggle = (id) => setOpenOverride((o) => ({ ...o, [id]: !(o[id] ?? (areas.find((a) => a.id === id) || {}).open) }))
   const inboxCount = inbox.length
+
+  const addArea = async () => {
+    const name = (window.prompt('New area name') || '').trim()
+    if (!name) return
+    try { await createArea(name, areas.length); await reload() } catch (e) { window.alert('Could not add area: ' + (e?.message || e)) }
+  }
+  const addProject = async (a) => {
+    const name = (window.prompt('New project in ' + a.name) || '').trim()
+    if (!name) return
+    try { await createProject(a.id, name, a.projects.length); await reload(); setOpenOverride((o) => ({ ...o, [a.id]: true })) } catch (e) { window.alert('Could not add project: ' + (e?.message || e)) }
+  }
 
   const navItem = (icon, text, screen, badge) => {
     const active = route.screen === screen
@@ -42,12 +54,16 @@ function Sidebar({ route, go }) {
     {navItem('inbox', 'Inbox', 'inbox', inboxCount)}
     {navItem('sparkles', 'Ask', 'ask')}
 
-    <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: t.t3, padding: '20px 10px 8px' }}>Areas</div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 10px 8px' }}>
+      <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: t.t3 }}>Areas</span>
+      <span title="Add area" onClick={addArea} style={{ display: 'inline-flex', color: t.t3, cursor: 'pointer' }}><Icon n="plus" s={13} /></span>
+    </div>
     <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
       {areas.map((a) => <div key={a.id}>
-        <div onClick={() => toggle(a.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: t.t2, cursor: 'pointer', padding: '6px 10px', borderRadius: 7 }}
+        <div onClick={() => toggle(a.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: t.t2, cursor: 'pointer', padding: '6px 10px', borderRadius: 7 }}
           onMouseEnter={(e) => (e.currentTarget.style.background = t.sel)} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-          <Icon n={isOpen(a) ? 'chevron-down' : 'chevron-right'} s={13} c={t.t3} />{a.name}</div>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><Icon n={isOpen(a) ? 'chevron-down' : 'chevron-right'} s={13} c={t.t3} />{a.name}</span>
+          <span title="Add project" onClick={(e) => { e.stopPropagation(); addProject(a) }} style={{ display: 'inline-flex', color: t.t3, padding: 2 }}><Icon n="plus" s={12} /></span></div>
         {isOpen(a) && a.projects.map((p) => { const active = route.screen === 'project' && route.id === p.id
           return <div key={p.id} onClick={() => go({ screen: 'project', id: p.id })}
             style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT, fontSize: 12.5, fontWeight: active ? 600 : 500,

@@ -119,3 +119,19 @@ export async function deleteInbox(id) {
   const { error } = await supabase.from('scribe_inbox').delete().eq('id', id)
   if (error) throw error
 }
+
+// Create an area (left-nav folder). sort positions it after existing areas.
+export async function createArea(name, sort = 0) {
+  const id = (crypto?.randomUUID?.() || 'area-' + Date.now())
+  const { error } = await supabase.from('scribe_areas').insert({ id, name, open_default: true, sort })
+  if (error) throw error
+  return id
+}
+
+// Create a project inside an area.
+export async function createProject(areaId, name, sort = 0) {
+  const id = (crypto?.randomUUID?.() || 'proj-' + Date.now())
+  const { error } = await supabase.from('scribe_projects').insert({ id, area_id: areaId, name, status: 'Active', sort })
+  if (error) throw error
+  return id
+}
